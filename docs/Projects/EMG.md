@@ -126,35 +126,47 @@ Electrode connection to SensEdu
 
 ### Amplifier Circuit
 
-Refering to the system architecture, the first step right after input electrodes is signal amplification. As a base SensEdu offers x2 Dual-Channel Instrumentation Amplifiers [AD8222](https://www.analog.com/media/en/technical-documentation/data-sheets/ad8222.pdf). 
+The first stage after the input electrodes is signal amplification. 
+
+The idea is to detect a signal at two points, amplify the "difference", and remove everything "common" between them. This way, the local EMG signal will be isolated and amplified. For that, we need a differential amplifier with a high Common Mode Rejection Ratio (CMRR), ideally >$$90dB$$. 
+
+Besides CMRR, an amplifier is also required to have a high input impedance. The impedance of the electrode-skin interface can vary from several thousand ohms to several megohms for dry skin. In order to prevent attenuation and distortion of the detected signal due to the effects of input loading, the input impedance of the differential amplifier should be as large as possible.
+
+A differential amplifier with input buffer amplifiers, which features very high CMRR and input impedance, is called an [Instrumentation Amplifier](https://en.wikipedia.org/wiki/Instrumentation_amplifier). SensEdu is equipped with this type of amplifiers, specifically the x2 dual-channel [AD8222](https://www.analog.com/media/en/technical-documentation/data-sheets/ad8222.pdf), making the platform suitable for bio-signal measurements.
 
 <img src="{{site.baseurl}}/assets/images/EMG_Amp_Circuit.png"/>
 {: .text-center .mb-1}
 
-Instrumentation Amplifier AD8222 Circuit
+Amplification Circuit
 {: .text-center .mt-0 .fw-500}
 
-Gain is set by $$R_G$$ resistor with the following formula:
+Gain is set by $$R_G$$ resistor, using the following formula:
 
 $$G = 1 + \frac{49.4kΩ}{R_G} = 1 + \frac{49.4kΩ}{1kΩ} = 50.4$$
 
-Series resistance protects amplifier from overvoltage and additional filtering is used to avoid high frequency rectification into the amplifier and thus signal distortion. The filter limits the input signal bandwidth according to the following relationship:
+To avoid high frequency rectification and thus signal distortions, additional filtering is applied at the input. The filter limits the input signal bandwidth according to the following relationships:
 
 $${f_c}_{DIFF} = \frac{1}{2\pi × R(2C_D + C_C)} = \frac{1}{2\pi × 3.9kΩ(2×470pF + 100pF)} = 37.7kHz$$
 
 $${f_c}_{CM} = \frac{1}{2\pi × R × C_C} = \frac{1}{2\pi × 3.9kΩ × 100pF} = 392.2kHz$$
 
 {: .NOTE}
-Mismatch between the R × CC at the positive input and the R × CC at 
-negative input degrades the CMRR of the AD8222. By using a value of ~ CD 10× larger than the value of CC, the effect of the mismatch is reduced and performance is improved.
+Mismatch between $$R × C_C$$ at the positive and negative inputs degrades the CMRR of the AD8222. By using a value for $$C_D$$ that is ~10× larger than $$C_C$$, the effect of the mismatch is reduced and performance is improved.
 
-We left the $${f_c}_{DIFF}$$ and $${f_c}_{CM}$$ values in stock values for all projects, but reducing these cut frequencies clother to working low frequency of EMG up to ~500Hz could improve signal quality.
+We used the default $${f_c}_{DIFF}$$ and $${f_c}_{CM}$$ cutoff frequencies for all projects, which were originally selected to suit the ultrasonic use case. Additional optimization is possible by reducing these cutoff frequencies to align with the working range of EMG signals (up to ~$$500Hz$$). It could result in improved signal quality and reduced post‐processing requirements.
 
-For writing arduino script you need to know how these amplifiers wired internally, to which header and which ADC channel. You can get this information from schematics and ADC summary table, but below you can find everything extracted in one place:
-* J9: 1st Channel of U5 → outputs MIC5 - A0 - ADC12_INP4
-* J11: 2nd Channel of U5 → outputs MIC6 - A2 - ADC12_INP9
-* J12: 1st Channel of U6 → outputs MIC7 - A11 - ADC12_INP0
-* J20: 2nd Channel of U6 → outputs MIC8 - A7 - ADC1_INP16
+To write Arduino scripts for EMG signal acquisition, it is crucial to understand how the amplifier I/O is wired. Specifically, the following details:
+* Which input header is connected to each amplifier channel
+* Which amplifier output corresponds to which ADC channel on the MCU
+
+All these details are available in the [SensEdu schematics](https://github.com/vladysor/SensEdu/blob/main/pcb/SensEdu_Schematics.pdf) and [ADC mapping table]({% link Library/ADC.md %}#adc_mapping). For convenience, the table below provides a summary of the relevant connections:
+
+| Input Header | Amplifier Channel | Output Arduino Pin | Output STM32 Pin | Available ADCs
+|:------|:--------|:------|:------|:------------|
+| J9    | U5 CH1  | A0    | PC4   | ADC1 & ADC2 |
+| J11   | U5 CH2  | A2    | PB0   | ADC1 & ADC2 |
+| J12   | U6 CH1  | A11   | PA0_C | ADC1 & ADC2 |
+| J20   | U6 CH2  | A7    | PA0   | ADC1        |
 
 ### ADC Configuration
 
@@ -173,13 +185,75 @@ Page 2747 Figure 793 of [STM32H747 Reference Manual] OTG_FS and USB0 at [Arduino
 
 ## Signal Processing
 
+![alt text](image-2.png)
+
 MATLAB magic
 
+![alt text](image-3.png)
+
+1. full wave rectification
+
+ull wave rectification 
+In a first step, all negative amplitudes are converted to positive amplitudes; the negative spikes are “moved 
+up” to positive or reflected by the baseline (Fig. 37). Besides easier reading, the main effect is that standard 
+amplitude parameters like mean, peak/max value and area can be applied to the curve (raw EMG has a 
+mean value of zero). 
+
+2. envelope
+
+![alt text](image-7.png)
+
+3. envelope ver2
+
+![alt text](image-8.png)
+
+![alt text](image-9.png)
+
+### Press problems
+
+![alt text](image-10.png)
+
+![alt text](image-11.png)
+
+![alt text](image-12.png)
+
+![alt text](image-13.png)
+
 ## Testing
+
+Motor point regions 
+Due to increased signal instability some researchers recommend not to place electrodes over motor point regions (area with high density of motor endplates) of the muscle. When using electrode sizes as recommended above, in many cases it cannot be avoided that one electrode comes near a motor point region. Motor points can be detected by low frequency stimulus power generators producing right angled impulses.
+
+Most of the important limb and trunk muscles can be measured by surface electrodes (right side muscles 
+in Fig. 26a/26b). Deeper, smaller or overlaid muscles need a fine wire application to be safely or selectively detected. The muscle maps show a selection of muscles that typically have been investigated in 
+kinesiological studies. The two yellow dots of the surface muscles indicate the orientation of the electrode 
+pair in ratio to the muscle fiber direction (proposals compiled from 1, 4, 10 and SENIAM).
+
+![alt text](image.png)
+
+At least one neutral reference electrode per subject needs to be positioned. Typically an electrically unaffected but nearby area is selected, such as joints, bony area, frontal head, processus spinosus, christa iliaca, tibia bone etc
+
+Due to differential amplification against any reference, the latest amplifier technology 
+(NORAXON active systems) needs no special area but only a location nearby the first electrode site.
+
+![alt text](image-1.png)
+
+![alt text](image-4.png)
+
+RULES:
+![alt text](image-5.png)
+
+![alt text](image-6.png)
 
 ## Showcase
 
 ## Possible improvements
+
+EMG recording should not use any hardware filters (e.g. notch filters), except the amplifier bandpass (10 – 500 Hz) filters that are needed to avoid anti-aliasing effects within 
+sampling. 
+
+Especially any type of notch filter (to e.g. cancel out 50 or 60 Hz noise) is not accepted because it destroys too much EMG signal power. Biofeedback units working with heavily preprocessed signals 
+should not be used for scientific studies.
 
 ## Sources
 
@@ -233,6 +307,8 @@ https://www.bu.edu/nmrc/files/2010/06/103.pdf
 
 ## Good Resources:
 * https://www.nature.com/articles/s41597-022-01484-2
+* https://abdominalkey.com/electromyography/
+* https://hermanwallace.com/download/The_ABC_of_EMG_by_Peter_Konrad.pdf
 
 ## Sources:
 * https://youtu.be/_k6QINRcdV4?si=rnil7B-ZlqmRCGSN

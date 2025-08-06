@@ -146,14 +146,14 @@ $$G = 1 + \frac{49.4kΩ}{R_G} = 1 + \frac{49.4kΩ}{1kΩ} = 50.4$$
 
 To avoid high frequency rectification and thus signal distortions, additional filtering is applied at the input. The filter limits the input signal bandwidth according to the following relationships:
 
-$${f_c}_{DIFF} = \frac{1}{2\pi × R(2C_D + C_C)} = \frac{1}{2\pi × 3.9kΩ(2×470pF + 100pF)} = 37.7kHz$$
+$${f_c}_{DIFF} = \frac{1}{2\pi × R(2C_D + C_C)} = \frac{1}{2\pi × 3.9kΩ(2×470pF + 100pF)} = 37.7\mathrm{kHz}$$
 
-$${f_c}_{CM} = \frac{1}{2\pi × R × C_C} = \frac{1}{2\pi × 3.9kΩ × 100pF} = 392.2kHz$$
+$${f_c}_{CM} = \frac{1}{2\pi × R × C_C} = \frac{1}{2\pi × 3.9kΩ × 100pF} = 392.2\mathrm{kHz}$$
 
 {: .NOTE}
 Mismatch between $$R × C_C$$ at the positive and negative inputs degrades the CMRR of the AD8222. By using a value for $$C_D$$ that is ~10× larger than $$C_C$$, the effect of the mismatch is reduced and performance is improved.
 
-We used the default $${f_c}_{DIFF}$$ and $${f_c}_{CM}$$ cutoff frequencies for all projects, which were originally selected to suit the ultrasonic use case. Additional optimization is possible by reducing these cutoff frequencies to align with the working range of EMG signals (up to ~$$500Hz$$). It could result in improved signal quality and reduced post‐processing requirements.
+We used the default $${f_c}_{DIFF}$$ and $${f_c}_{CM}$$ cutoff frequencies for all projects, which were originally selected to suit the ultrasonic use case. Additional optimization is possible by reducing these cutoff frequencies to align with the working range of EMG signals (up to ~$$500\mathrm{Hz}$$). It could result in improved signal quality and reduced post‐processing requirements.
 
 To write Arduino scripts for EMG signal acquisition, it is crucial to understand how the amplifier I/O is wired. Specifically, the following details:
 * Which input header is connected to each amplifier channel
@@ -168,28 +168,94 @@ All these details are available in the [SensEdu schematics](https://github.com/v
 | J12   | U6 CH1  | A11   | PA0_C | ADC1 & ADC2 |
 | J20   | U6 CH2  | A7    | PA0   | ADC1        |
 
-### ADC Configuration
+### Data Acquisition
 
-Give here details about ADCs for Arduino sketch.
+As the next step we need to write and configure data acquisition Arduino sketch. First we need to decide on some of ADC parameters: sampling rate, buffer size, memory mode etc.
 
+Sampling rate over 1.5kHz should be enough for EMG applications, but we configured it with high oversampling rate of $$f_s = 25.6\mathrm{kHz}$$, because more samples would help us with future post-processing. For each channel we use a buffer of $$N_s = 1024 \ \mathrm{samples}$$. ADC is configured with DMA to reduce CPU loas and maximise speed. Final theoretical one measurement duration:
 
+$$d_{meas} = \frac{N_s}{f_s} = \frac{1024 \ \mathrm{samples}}{25.6\mathrm{kHz}} = 40\mathrm{ms} $$
 
-SensEdu Amplification Circuit
-{: .text-center .mt-0 .fw-500}
+{: .NOTE}
+Measurement duration is independent of amount of selected channels. ADC is designed to maintain its sampling frequency **per channel**.
 
-Amplifier, script, basic circuit, converter, all required elements
+In reality, we have $$d_{meas}$$ varying approximately $$46-51\mathrm{ms}$$ due to not instant data transmission, some wasted CPU cycles, fluctuations in ADC conversion rate, and other reasons. Finally, we have a measurement rate at around 20 meas/sec. If you are not satisfied with the result, you can get back and adjust parameters accordingly.
+
+Keeping selected values in mind we can configure ADC using [SensEdu Library]({% link Library/index.md %}). Configuration is similar to [Read_ADC_3CH_DMA]({% link Library/ADC.md %}#read_adc_3ch_dma) example. Below you can find the minimal example code with essential lines.
+
+```c
+ADC_TypeDef* adc = ADC1;
+const uint16_t channel_count = 4;
+uint8_t adc_pins[channel_count] = {A0, A2, A11, A7};
+const uint16_t sampling_rate = 25600;
+
+const uint16_t mem_size = 16 * channel_count * 64; // must be multiple of 16
+__attribute__((aligned(__SCB_DCACHE_LINE_SIZE))) uint16_t emg_data[mem_size];
+
+SensEdu_ADC_Settings adc_settings = {
+    .adc = adc,
+    .pins = adc_pins,
+    .pin_num = channel_count,
+
+    .conv_mode = SENSEDU_ADC_MODE_CONT_TIM_TRIGGERED,
+    .sampling_freq = sampling_rate,
+    
+    .dma_mode = SENSEDU_ADC_DMA_CONNECT,
+    .mem_address = (uint16_t*)emg_data,
+    .mem_size = mem_size
+};
+```
+
+After that you need to initialize, enable and start ADC:
+
+```c
+void setup() {
+    Serial.begin(115200);
+    SensEdu_ADC_Init(&adc_settings);
+    SensEdu_ADC_Enable(adc);
+    SensEdu_ADC_Start(adc);
+}
+```
+
+Finally, wait till ADC completed its conversions and DMA transferred the data, send these data to PC, and restart ADC.
+
+```c
+void loop() {
+    while(!SensEdu_ADC_GetTransferStatus(adc));
+    transfer_serial_data(&(emg_data[0]), mem_size, 64);
+
+    SensEdu_ADC_ClearTransferStatus(adc);
+    SensEdu_ADC_Start(adc);
+}
+```
+
+You can find our final expanded sketch at `/projects/EMG-BioInputs/EMG-BioInputs.ino`. The main difference would be that after reset we send all configuration data to MATLAB like sampling frequency, buffer size etc., and another thing that the measurement is triggered by MATLAB at each iteration to simplify data symncronization.
 
 ### Data transfer
 
-Page 2747 Figure 793 of [STM32H747 Reference Manual] OTG_FS and USB0 at [Arduino GIGA R1 Schematics].
+Arduino GIGA R1 doesn't use typical UART interface and instead it uses USB communication abstracted to behave like a serial link. This implementation makes connection baudrate independent, number in `Serial.begin()` has no effect on actual transfer speed. You can find how USB is internally implented on Figure 793 (Page 2747) of [STM32H747 Reference Manual] as OTG_FS and then USB0 at [Arduino GIGA R1 Schematics]. 
+
+To use this USB efficiently it is advised to arrange your data in chunks. In [this repository](https://github.com/vladysor/giga-r1-serial-transfer-tests) we tested different chunk sizes. The best one is 64-byte chunks which corresponds to above mentioned OTG_FS in reference manual.
+
+```c
+// chunk_size in bytes, for OTG_FS "64" is passed
+void transfer_serial_data(uint16_t* buf, const uint16_t buf_size, const uint16_t chunk_size) {
+    for (uint16_t i = 0; i < (buf_size*2); i += chunk_size) {
+        uint16_t cur_chunk_size = ((buf_size*2) - i < chunk_size) ? (buf_size*2 - i) : chunk_size;
+        Serial.write((const uint8_t *) buf + i, cur_chunk_size);
+    }
+}
+```
+
+Alternatively, you can also use WiFi, implementing something similar to [Basic_UltraSound_WiFi]({% link Library/Others.md %}#basic_ultrasound_wifi) example.
 
 ## Signal Processing
 
-![alt text](image-2.png)
+![alt text]({{site.baseurl}}/Projects/image-2.png)
 
 MATLAB magic
 
-![alt text](image-3.png)
+![alt text]({{site.baseurl}}/Projects/image-3.png)
 
 1. full wave rectification
 
@@ -201,58 +267,58 @@ mean value of zero).
 
 2. envelope
 
-![alt text](image-7.png)
+![alt text]({{site.baseurl}}/Projects/image-7.png)
 
 3. envelope ver2
 
-![alt text](image-8.png)
+![alt text]({{site.baseurl}}/Projects/image-8.png)
 
-![alt text](image-9.png)
+![alt text]({{site.baseurl}}/Projects/image-9.png)
 
 ### Press problems
 
-![alt text](image-10.png)
+![alt text]({{site.baseurl}}/Projects/image-10.png)
 
-![alt text](image-11.png)
+![alt text]({{site.baseurl}}/Projects/image-11.png)
 
-![alt text](image-12.png)
+![alt text]({{site.baseurl}}/Projects/image-12.png)
 
-![alt text](image-13.png)
+![alt text]({{site.baseurl}}/Projects/image-13.png)
 
 ## Testing
 
 Motor point regions 
-Due to increased signal instability some researchers recommend not to place electrodes over motor point regions (area with high density of motor endplates) of the muscle. When using electrode sizes as recommended above, in many cases it cannot be avoided that one electrode comes near a motor point region. Motor points can be detected by low frequency stimulus power generators producing right angled impulses.
+Due to increased signal instability some researchers recommend not to place electrodes over motor point regions (area with high density of motor endplates) of the muscle. When using electrode sizes as recommended above, in many cases it cannot be avoided that one electrode comes near a motor point region. Motor points can be detected by low frequency stimulus power generators producing right angled impulses.
 
 Most of the important limb and trunk muscles can be measured by surface electrodes (right side muscles 
-in Fig. 26a/26b). Deeper, smaller or overlaid muscles need a fine wire application to be safely or selectively detected. The muscle maps show a selection of muscles that typically have been investigated in 
+in Fig. 26a/26b). Deeper, smaller or overlaid muscles need a fine wire application to be safely or selectively detected. The muscle maps show a selection of muscles that typically have been investigated in 
 kinesiological studies. The two yellow dots of the surface muscles indicate the orientation of the electrode 
 pair in ratio to the muscle fiber direction (proposals compiled from 1, 4, 10 and SENIAM).
 
-![alt text](image.png)
+![alt text]({{site.baseurl}}/Projects/image.png)
 
-At least one neutral reference electrode per subject needs to be positioned. Typically an electrically unaffected but nearby area is selected, such as joints, bony area, frontal head, processus spinosus, christa iliaca, tibia bone etc
+At least one neutral reference electrode per subject needs to be positioned. Typically an electrically unaffected but nearby area is selected, such as joints, bony area, frontal head, processus spinosus, christa iliaca, tibia bone etc
 
 Due to differential amplification against any reference, the latest amplifier technology 
 (NORAXON active systems) needs no special area but only a location nearby the first electrode site.
 
-![alt text](image-1.png)
+![alt text]({{site.baseurl}}/Projects/image-1.png)
 
-![alt text](image-4.png)
+![alt text]({{site.baseurl}}/Projects/image-4.png)
 
 RULES:
-![alt text](image-5.png)
+![alt text]({{site.baseurl}}/Projects/image-5.png)
 
-![alt text](image-6.png)
+![alt text]({{site.baseurl}}/Projects/image-6.png)
 
 ## Showcase
 
 ## Possible improvements
 
-EMG recording should not use any hardware filters (e.g. notch filters), except the amplifier bandpass (10 – 500 Hz) filters that are needed to avoid anti-aliasing effects within 
+EMG recording should not use any hardware filters (e.g. notch filters), except the amplifier bandpass (10 – 500 Hz) filters that are needed to avoid anti-aliasing effects within 
 sampling. 
 
-Especially any type of notch filter (to e.g. cancel out 50 or 60 Hz noise) is not accepted because it destroys too much EMG signal power. Biofeedback units working with heavily preprocessed signals 
+Especially any type of notch filter (to e.g. cancel out 50 or 60 Hz noise) is not accepted because it destroys too much EMG signal power. Biofeedback units working with heavily preprocessed signals 
 should not be used for scientific studies.
 
 ## Sources
@@ -301,6 +367,10 @@ For example, a 5Hz low-pass filter requires at least 200ms of data for one full 
  Sliding Overlapping Windows
 
 Use a 1-second buffer for filtering and envelope detection, but process overlapping chunks (e.g., update every 40ms). This ensures that decisions are updated frequently without sacrificing the filtering accuracy of the longer window.
+
+With configured serial communication via USB FS, ideal communication speed then assuming no CPU cycles are wasted on data acquisition for 4 EMG channels would be:
+
+$$\frac{4\mathrm{CHs}*1024\mathrm{samples}*16\mathrm{bit}}{5525\mathrm{kbps}} = 11.86\mathrm{ms}$$
 
 ## Good study on perfect high pass value
 https://www.bu.edu/nmrc/files/2010/06/103.pdf

@@ -1,5 +1,5 @@
 ---
-title: Ultrasonic Distance Measurements
+title: Ultrasonic Ranging
 layout: default
 math: mathjax
 parent: Projects
@@ -7,7 +7,7 @@ nav_order: 1
 ---
 
 
-# Project: Ultrasonic Distance Measurements
+# Ultrasonic Ranging
 {: .fs-8 .fw-500}
 ---
 

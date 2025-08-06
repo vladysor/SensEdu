@@ -3,7 +3,7 @@ title: FMCW Radar
 layout: default
 math: mathjax
 parent: Projects
-nav_order: 3
+nav_order: 4
 ---
 
 # FMCW Radar

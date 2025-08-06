@@ -3,7 +3,7 @@ title: EMG BioInputs
 layout: default
 parent: Projects
 math: mathjax
-nav_order: 4
+nav_order: 5
 ---
 
 # EMG BioInputs
@@ -128,9 +128,9 @@ Electrode connection to SensEdu
 
 The first stage after the input electrodes is signal amplification. 
 
-The idea is to detect a signal at two points, amplify the "difference", and remove everything "common" between them. This way, the local EMG signal will be isolated and amplified. For that, we need a differential amplifier with a high Common Mode Rejection Ratio (CMRR), ideally >$$90dB$$. 
+The idea is to detect a signal at two points, amplify the "difference", and remove everything "common" between them. This way, the local EMG signal will be isolated and amplified. For that, we need a differential amplifier with a **high Common Mode Rejection Ratio** (CMRR), at least >$$90dB$$. 
 
-Besides CMRR, an amplifier is also required to have a high input impedance. The impedance of the electrode-skin interface can vary from several thousand ohms to several megohms for dry skin. In order to prevent attenuation and distortion of the detected signal due to the effects of input loading, the input impedance of the differential amplifier should be as large as possible.
+Besides CMRR, an amplifier is also required to have a **high input impedance**. The impedance of the electrode-skin interface can vary from several thousand ohms to several megohms for dry skin. In order to prevent attenuation and distortion of the detected signal due to the effects of input loading, the input impedance of the differential amplifier should be as large as possible.
 
 A differential amplifier with input buffer amplifiers, which features very high CMRR and input impedance, is called an [Instrumentation Amplifier](https://en.wikipedia.org/wiki/Instrumentation_amplifier). SensEdu is equipped with this type of amplifiers, specifically the x2 dual-channel [AD8222](https://www.analog.com/media/en/technical-documentation/data-sheets/ad8222.pdf), making the platform suitable for bio-signal measurements.
 
@@ -231,11 +231,11 @@ void loop() {
 
 The final expanded sketch is available at `/projects/EMG-BioInputs/EMG-BioInputs.ino`. It differs from above snippets in that it sends all configuration data to MATLAB during initialization. Additionally, the measurement process is triggered by MATLAB at each iteration to simplify data synchronization.
 
-### Data transfer
+### Data Transfer
 
 Arduino GIGA R1 doesn't use a typical UART interface for serial communication. Instead, it uses USB communication abstracted to behave like a serial link. This implementation makes the connection baud rate independent, meaning the number in `Serial.begin()` has no effect on the actual transfer speed. For further details on the USB implementation, refer to Figure 793 (Page 2747) of [STM32H747 Reference Manual] (OTG_FS) and the USB0 in the [Arduino GIGA R1 Schematics]. 
 
-To maximize the USB efficiency, data should be arranged and transferred in chunks. Based on tests in [this repository](https://github.com/vladysor/giga-r1-serial-transfer-tests), the optimal chunk size is 64 bytes, as specified in the OTG_FS section of the reference manual. Below is an example of how to implement chunked data transfer via USB.
+**To maximize the USB efficiency, data should be arranged and transferred in chunks**. Based on tests in [this repository](https://github.com/vladysor/giga-r1-serial-transfer-tests), the optimal chunk size is 64 bytes, as specified in the OTG_FS section of the reference manual. Below is an example of how to implement chunked data transfer via USB.
 
 ```c
 // chunk_size in bytes, for OTG_FS "64" is passed
@@ -250,6 +250,19 @@ void transfer_serial_data(uint16_t* buf, const uint16_t buf_size, const uint16_t
 Alternatively, WiFi can be used for data transfer by implementing a method similar to the [Basic_UltraSound_WiFi]({% link Library/Others.md %}#basic_ultrasound_wifi) example.
 
 ## Signal Processing
+
+A 1-second history allows the filter to capture multiple cycles of low-frequency components, such as 10Hz (1 cycle every 100ms) or even lower frequencies (e.g., motion artifacts below 10Hz). This improves:
+
+The filter's ability to attenuate noise and artifacts.
+The preservation of desired signal components, especially in the lower frequency band.
+
+A longer history allows low-pass filters (used in envelope detection) to smooth the rectified signal over a larger time frame, resulting in a more robust and stable envelope.
+For example, a 5Hz low-pass filter requires at least 200ms of data for one full cycle. With a 1-second history, the envelope will be less sensitive to short-term fluctuations or noise.
+
+ Sliding Overlapping Windows
+
+Use a 1-second buffer for filtering and envelope detection, but process overlapping chunks (e.g., update every 40ms). This ensures that decisions are updated frequently without sacrificing the filtering accuracy of the longer window.
+
 
 ![alt text]({{site.baseurl}}/Projects/image-2.png)
 
@@ -285,6 +298,12 @@ mean value of zero).
 
 ![alt text]({{site.baseurl}}/Projects/image-13.png)
 
+### Capacitive input
+
+ignore some of the first samples for ADC stabilization
+
+https://devzone.nordicsemi.com/f/nordic-q-a/80796/adc---first-read-is-always-wrong/336435
+
 ## Testing
 
 Motor point regions 
@@ -313,6 +332,8 @@ RULES:
 
 ## Showcase
 
+WASD Dark Souls for 4 channels?
+
 ## Possible improvements
 
 EMG recording should not use any hardware filters (e.g. notch filters), except the amplifier bandpass (10 – 500 Hz) filters that are needed to avoid anti-aliasing effects within 
@@ -321,56 +342,10 @@ sampling.
 Especially any type of notch filter (to e.g. cancel out 50 or 60 Hz noise) is not accepted because it destroys too much EMG signal power. Biofeedback units working with heavily preprocessed signals 
 should not be used for scientific studies.
 
-## Sources
+Implement filtering in hardware, you can extend SensEdu with another custom shield which will make half of current signal processing unnecessary greatly reducing latency and required computations. In addition, use right leg drive to decrease noise and offset.
 
 ## Appendix: data recordings for improvements
 
-
-SensEdu is equipped with x2 [AD8222] Instrumentation Amplifier ([datasheet]).
-
-Each Amplifier is dual-channel, so we have 4 channels in total. All channels are accessible from the following Jumpers:
-* J9: 1st Channel of U5 → outputs MIC5 - A0 - ADC12_INP4
-* J11: 2nd Channel of U5 → outputs MIC6 - A2 - ADC12_INP9
-* J12: 1st Channel of U6 → outputs MIC7 - A11 - ADC12_INP0
-* J20: 2nd Channel of U6 → outputs MIC8 - A7 - ADC1_INP16
-
-Refer to the [ADC mapping table](/SensEdu/Library/ADC/#adc_mapping) for better understanding.
-
-Circuit for each of the amplifier:
-
-<img src="{{site.baseurl}}/assets/images/amp_circuit.png"/>
-{: .text-center}
-
-Electrode mapping:
-* Tip: Red
-* Ring: Blue
-* Sleeve: Black
-
-## Test
-
-WASD Dark Souls for 4 channels?
-
-## Capacitive input
-ignore some of the first samples for ADC stabilization
-
-https://devzone.nordicsemi.com/f/nordic-q-a/80796/adc---first-read-is-always-wrong/336435
-
-## History
-A 1-second history allows the filter to capture multiple cycles of low-frequency components, such as 10Hz (1 cycle every 100ms) or even lower frequencies (e.g., motion artifacts below 10Hz). This improves:
-
-The filter's ability to attenuate noise and artifacts.
-The preservation of desired signal components, especially in the lower frequency band.
-
-A longer history allows low-pass filters (used in envelope detection) to smooth the rectified signal over a larger time frame, resulting in a more robust and stable envelope.
-For example, a 5Hz low-pass filter requires at least 200ms of data for one full cycle. With a 1-second history, the envelope will be less sensitive to short-term fluctuations or noise.
-
- Sliding Overlapping Windows
-
-Use a 1-second buffer for filtering and envelope detection, but process overlapping chunks (e.g., update every 40ms). This ensures that decisions are updated frequently without sacrificing the filtering accuracy of the longer window.
-
-With configured serial communication via USB FS, ideal communication speed then assuming no CPU cycles are wasted on data acquisition for 4 EMG channels would be:
-
-$$\frac{4\mathrm{CHs}*1024\mathrm{samples}*16\mathrm{bit}}{5525\mathrm{kbps}} = 11.86\mathrm{ms}$$
 
 ## Good study on perfect high pass value
 https://www.bu.edu/nmrc/files/2010/06/103.pdf
@@ -384,9 +359,6 @@ https://www.bu.edu/nmrc/files/2010/06/103.pdf
 * https://youtu.be/_k6QINRcdV4?si=rnil7B-ZlqmRCGSN
 * https://youtu.be/ApaPlKPb4ek?si=rHncr0b2XipqN83i
 
-## Improvements
-* Implement filtering in hardware, you can extend SensEdu with another custom shield which will make half of current signal processing unnecessary greatly reducing latency and required computations. In addition, use right leg drive to decrease noise and offset.
-* mkm
 
 [Byte Size Med]: https://www.youtube.com/channel/UCZghvlgylH3r_CWfA18eFRg
 [Action Potential]: (https://en.wikipedia.org/wiki/Action_potential)

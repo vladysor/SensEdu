@@ -170,18 +170,18 @@ All these details are available in the [SensEdu schematics](https://github.com/v
 
 ### Data Acquisition
 
-As the next step we need to write and configure data acquisition Arduino sketch. First we need to decide on some of ADC parameters: sampling rate, buffer size, memory mode etc.
+The next step is to write and configure the Arduino sketch responsible for data acquisition. This involves configuring ADC parameters, such as sampling rate, buffer size, memory mode, etc.
 
-Sampling rate over 1.5kHz should be enough for EMG applications, but we configured it with high oversampling rate of $$f_s = 25.6\mathrm{kHz}$$, because more samples would help us with future post-processing. For each channel we use a buffer of $$N_s = 1024 \ \mathrm{samples}$$. ADC is configured with DMA to reduce CPU loas and maximise speed. Final theoretical one measurement duration:
+For EMG, a sampling rate of about $$1.5\mathrm{kHz}$$ is usually sufficient. However, to improve the quality of future digital post-processing, this project uses a high oversampling rate of $$f_s = 25.6\mathrm{kHz}$$. Each channel uses a buffer of $$N_s = 1024 \ \mathrm{samples}$$. ADC is configured with DMA to minimize CPU load and maximize performance. The ideal theoretical duration of one complete measurement cycle is given as:
 
 $$d_{meas} = \frac{N_s}{f_s} = \frac{1024 \ \mathrm{samples}}{25.6\mathrm{kHz}} = 40\mathrm{ms} $$
 
 {: .NOTE}
-Measurement duration is independent of amount of selected channels. ADC is designed to maintain its sampling frequency **per channel**.
+The measurement duration is independent of the number of selected channels. ADC is designed to maintain its sampling frequency **per channel**.
 
-In reality, we have $$d_{meas}$$ varying approximately $$46-51\mathrm{ms}$$ due to not instant data transmission, some wasted CPU cycles, fluctuations in ADC conversion rate, and other reasons. Finally, we have a measurement rate at around 20 meas/sec. If you are not satisfied with the result, you can get back and adjust parameters accordingly.
+In practice, the actual $$d_{meas}$$ varies between approximately $$46-51\mathrm{ms}$$ due to delays from data transmission, wasted CPU cycles, ADC conversion rate fluctuations, and other factors. In the end, it results in a practical measurement rate at around $$20$$ measurements per second. If this performance is not satisfactory, revisit the adjustment of ADC parameters.
 
-Keeping selected values in mind we can configure ADC using [SensEdu Library]({% link Library/index.md %}). Configuration is similar to [Read_ADC_3CH_DMA]({% link Library/ADC.md %}#read_adc_3ch_dma) example. Below you can find the minimal example code with essential lines.
+Keeping selected parameters in mind, the ADC can be configured using [SensEdu Library]({% link Library/index.md %}). The configuration follows similar structure to the [Read_ADC_3CH_DMA]({% link Library/ADC.md %}#read_adc_3ch_dma) example. Below is a minimal code example, focusing on the essential lines.
 
 ```c
 ADC_TypeDef* adc = ADC1;
@@ -189,7 +189,7 @@ const uint16_t channel_count = 4;
 uint8_t adc_pins[channel_count] = {A0, A2, A11, A7};
 const uint16_t sampling_rate = 25600;
 
-const uint16_t mem_size = 16 * channel_count * 64; // must be multiple of 16
+const uint16_t mem_size = 16 * channel_count * 64; // must be a multiple of 16
 __attribute__((aligned(__SCB_DCACHE_LINE_SIZE))) uint16_t emg_data[mem_size];
 
 SensEdu_ADC_Settings adc_settings = {
@@ -206,7 +206,7 @@ SensEdu_ADC_Settings adc_settings = {
 };
 ```
 
-After that you need to initialize, enable and start ADC:
+Once the parameters are selected, the ADC must be initialized, enabled, and started.
 
 ```c
 void setup() {
@@ -217,7 +217,7 @@ void setup() {
 }
 ```
 
-Finally, wait till ADC completed its conversions and DMA transferred the data, send these data to PC, and restart ADC.
+In the main loop, ensure that ADC completed its conversions and that DMA transferred the data. Transfer the data to PC, and restart the ADC again.
 
 ```c
 void loop() {
@@ -229,13 +229,13 @@ void loop() {
 }
 ```
 
-You can find our final expanded sketch at `/projects/EMG-BioInputs/EMG-BioInputs.ino`. The main difference would be that after reset we send all configuration data to MATLAB like sampling frequency, buffer size etc., and another thing that the measurement is triggered by MATLAB at each iteration to simplify data symncronization.
+The final expanded sketch is available at `/projects/EMG-BioInputs/EMG-BioInputs.ino`. It differs from above snippets in that it sends all configuration data to MATLAB during initialization. Additionally, the measurement process is triggered by MATLAB at each iteration to simplify data synchronization.
 
 ### Data transfer
 
-Arduino GIGA R1 doesn't use typical UART interface and instead it uses USB communication abstracted to behave like a serial link. This implementation makes connection baudrate independent, number in `Serial.begin()` has no effect on actual transfer speed. You can find how USB is internally implented on Figure 793 (Page 2747) of [STM32H747 Reference Manual] as OTG_FS and then USB0 at [Arduino GIGA R1 Schematics]. 
+Arduino GIGA R1 doesn't use a typical UART interface for serial communication. Instead, it uses USB communication abstracted to behave like a serial link. This implementation makes the connection baud rate independent, meaning the number in `Serial.begin()` has no effect on the actual transfer speed. For further details on the USB implementation, refer to Figure 793 (Page 2747) of [STM32H747 Reference Manual] (OTG_FS) and the USB0 in the [Arduino GIGA R1 Schematics]. 
 
-To use this USB efficiently it is advised to arrange your data in chunks. In [this repository](https://github.com/vladysor/giga-r1-serial-transfer-tests) we tested different chunk sizes. The best one is 64-byte chunks which corresponds to above mentioned OTG_FS in reference manual.
+To maximize the USB efficiency, data should be arranged and transferred in chunks. Based on tests in [this repository](https://github.com/vladysor/giga-r1-serial-transfer-tests), the optimal chunk size is 64 bytes, as specified in the OTG_FS section of the reference manual. Below is an example of how to implement chunked data transfer via USB.
 
 ```c
 // chunk_size in bytes, for OTG_FS "64" is passed
@@ -247,7 +247,7 @@ void transfer_serial_data(uint16_t* buf, const uint16_t buf_size, const uint16_t
 }
 ```
 
-Alternatively, you can also use WiFi, implementing something similar to [Basic_UltraSound_WiFi]({% link Library/Others.md %}#basic_ultrasound_wifi) example.
+Alternatively, WiFi can be used for data transfer by implementing a method similar to the [Basic_UltraSound_WiFi]({% link Library/Others.md %}#basic_ultrasound_wifi) example.
 
 ## Signal Processing
 

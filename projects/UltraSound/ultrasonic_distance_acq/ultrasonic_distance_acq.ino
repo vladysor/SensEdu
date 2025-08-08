@@ -5,6 +5,7 @@
 #include "SineLUT.h"
 #include "FilterTaps.h"
 #include "DACWave.h" // contains wave and its size
+
 uint32_t lib_error = 0;
 uint8_t error_led = D86;
 
@@ -18,15 +19,14 @@ uint8_t error_led = D86;
 #define STORE_BUF_SIZE  32 * 32     // 2400 for 1 measurement per second. 
                             	    // only multiples of 32!!!!!! (64 chunk size of bytes, so 32 for 16bit)
 
-
-/*************************FILTER *****************/
+/* --------------------------------- Filter --------------------------------- */
 #define FILTER_BLOCK_LENGTH     32      // how many samples we want to process every time we call the fir process function AT
 #define FILTER_TAP_NUM          32      // tap number for the bandpass filter
 
 static float32_t firStateBuffer[FILTER_BLOCK_LENGTH + FILTER_TAP_NUM - 1];   // current filter state buffer
 arm_fir_instance_f32 Fir_filt;  // creating an object instance
 
-/********************************** ADC **************/
+/* ----------------------------------- ADC ---------------------------------- */
 
 ADC_TypeDef* adc1 = ADC1;
 ADC_TypeDef* adc2 = ADC2;
@@ -45,8 +45,6 @@ const uint16_t adc2_data_size = STORE_BUF_SIZE * adc2_mic_num;
 
 __attribute__((aligned(__SCB_DCACHE_LINE_SIZE))) uint16_t adc1_data[adc1_data_size];
 __attribute__((aligned(__SCB_DCACHE_LINE_SIZE))) uint16_t adc2_data[adc2_data_size];
-
-
 
 SensEdu_ADC_Settings adc1_settings = {
     .adc = adc1,
@@ -74,9 +72,7 @@ SensEdu_ADC_Settings adc2_settings = {
     .mem_size = adc2_data_size
 };
 
-
-
-/********************* DAC ****************/
+/* ----------------------------------- DAC ---------------------------------- */
 DAC_Channel* dac_channel = DAC_CH1;
 // lut settings are in SineLUT.h
 #define DAC_SINE_FREQ     	32000                           // 32kHz
@@ -119,7 +115,7 @@ void setup() {
     
     //SensEdu_ADC_ShortA4toA9(); // in order to use ADC1 for mic2
 
-    Serial.begin(115200); // 14400 bytes/sec -> 7200 samples/sec -> 2400 samples/sec for 1 mic
+    Serial.begin(115200);
 
     /* DAC */
     SensEdu_DAC_Init(&dac_settings);
@@ -151,7 +147,7 @@ void loop() {
     // Measurement is initiated by signal from computing device
 	#ifndef SERIAL_OFF
 		while (1) {
-			while (Serial.available() == 0);    // Wait for a signal
+			while (Serial.available() == 0); // Wait for a signal
 			serial_buf = Serial.read();
 			if (serial_buf == 't') {
                 break; 

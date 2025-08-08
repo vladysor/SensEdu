@@ -1,52 +1,6 @@
-
-/*------------------------------------------------------------------*/
-/*                     MAIN MEASUREMENT FUNCTION                    */
-/*------------------------------------------------------------------*/
-
-
-uint32_t get_distance_measurement(float* xcorr_buf, size_t xcorr_buf_size, uint16_t* mic_array, size_t mic_array_size, const char* channel, uint8_t adc_ch_num, uint8_t ban_flag, float* modified_xcorr_buf, uint8_t trust) {
-	rescale_adc_wave(xcorr_buf, mic_array, channel, mic_array_size, adc_ch_num);
-    if (XCORR_DEBUG)
-        serial_send_array((const uint8_t*)mic_array, mic_array_size, channel, adc_ch_num);
-
-	// remove self reflections from a dataset
-	if (ban_flag == 1) {
-		for (uint32_t i = 0; i < banned_sample_num; i++) {
-			xcorr_buf[i] = 0;
-		}
-	}
-    if (XCORR_DEBUG)
-        serial_send_array((const uint8_t*)xcorr_buf, xcorr_buf_size, "b", 1);
-
-    custom_xcorr(xcorr_buf, dac_wave, STORE_BUF_SIZE);
-    if (XCORR_DEBUG)
-	    serial_send_array((const uint8_t*)xcorr_buf, xcorr_buf_size, "b", 1);
-	
-    // new logic
-    /*float calculated_distance = calculate_distance(xcorr_buf);
-
-    xcorr_modification_logic(xcorr_buf, modified_xcorr_buf);
-    float assumed_distance = calculate_distance(modified_xcorr_buf);
-
-    // compare
-    if(compare_distances(calculated_distance, assumed_distance)) {
-        trust++; 
-        return assumed_distance;
-    }
-    else {
-        trust = 0;
-        return calculated_distance;
-    }*/
-    float calculated_distance = calculate_distance(xcorr_buf);
-    return calculated_distance;
-}
-
-
 /*------------------------------------------------------------------*/
 /*                     CROSS-CORRELATION FUNCTION                   */
 /*------------------------------------------------------------------*/
-
-
 void custom_xcorr(float* xcorr_buf, const uint16_t* dac_wave, uint32_t adc_data_length) {
     // delay loop
     for (int32_t m = 0; m < adc_data_length; m++) {
@@ -63,12 +17,9 @@ void custom_xcorr(float* xcorr_buf, const uint16_t* dac_wave, uint32_t adc_data_
     }
 }
 
-
 /*------------------------------------------------------------------*/
 /*                     BANDPASS FILTERING FUNCTION                  */
 /*------------------------------------------------------------------*/
-
-
 void filter_32kHz_wave(float* rescaled_adc_wave, uint16_t adc_data_length) {
     static float32_t output_signal[STORE_BUF_SIZE];
     // initialize this temporal buffer
@@ -84,7 +35,6 @@ void filter_32kHz_wave(float* rescaled_adc_wave, uint16_t adc_data_length) {
     // copy the filtered signal to the rescaled_adc_wave
     memcpy(rescaled_adc_wave, output_signal, adc_data_length * sizeof(float));
 }
-
 
 /*------------------------------------------------------------------*/
 /*                     RESCALING FUNCTION                           */
@@ -135,61 +85,32 @@ void rescale_adc_wave(float* rescaled_adc_wave, uint16_t* adc_wave, const char* 
     }
     filter_32kHz_wave(rescaled_adc_wave, STORE_BUF_SIZE);   
 }
-/*------------------------------------------------------------------*/
-/*                     OBJECT DETECTION FUNCTION                    */
-/*------------------------------------------------------------------*/
-
-uint8_t object_detected(float* xcorr_buf, uint32_t adc_data_length) {
-    for (int32_t m = 0; m < adc_data_length; m++) {
-        if(xcorr_buf[m] > POST_FILTER_THRESHOLD) return 1;
-    }
-    return 0;
-}
-
-/*------------------------------------------------------------------*/
-/*                     COMPARE DISTANCES                            */
-/*------------------------------------------------------------------*/
-
-
-uint8_t compare_distances(float calculated_distance, float assumed_distance) {
-    // calculated_distance - distance we calculate after xcorr
-    // assumed_distance - distance we get after xcorr modification and trust algorithm
-    if (abs(calculated_distance - assumed_distance) < 0.0001) return 1; 
-
-    return 0; // in case they are not the same return 0
-}
-
-/*------------------------------------------------------------------*/
-/*                     COMPARE DISTANCES                            */
-/*------------------------------------------------------------------*/
-void xcorr_modification_logic(float* xcorr_buf, float* xcorr_buf_modified) {
-    float buf_value = 0.0;
-    for(uint16_t i = 0; i < STORE_BUF_SIZE; i++) {
-        if(i < 400) {
-            buf_value = 0.25 * xcorr_buf[i] + xcorr_buf[i];
-        }
-        else buf_value = xcorr_buf[i];
-        xcorr_buf_modified[i] = buf_value;
-    }
-}
 
 /*------------------------------------------------------------------*/
 /*                     CALCULATE DISTANCES                          */
 /*------------------------------------------------------------------*/
-
 float calculate_distance(float *xcorr_buf) {
-    uint32_t peak_index = 0;
+    uint32_t peak_index = 0, pocni = 0, cnt = 0;
 	float biggest = 0.0f;
-
-	for (uint32_t i = 0; i < STORE_BUF_SIZE; i++) {
-		if (xcorr_buf[i] > biggest) {
-			biggest = xcorr_buf[i];
-			peak_index = i;
-		}
-	}
-	uint16_t sr = ACTUAL_SAMPLING_RATE/1000; // kS/sec  sample rate
-	uint16_t c = 343; // speed in air
-	// (lag_samples * sample_time) * air_speed / 2
-	uint32_t distance = ((peak_index * 1000 * c) / sr) >> 1; // in micrometers
+    uint16_t sr = ACTUAL_SAMPLING_RATE/1000; // kS/sec  sample rate
+    uint32_t distance = 0;
+    while(cnt!=STORE_BUF_SIZE) {
+        for (uint32_t i = pocni; i < STORE_BUF_SIZE; i++) {
+            if (xcorr_buf[i] > biggest) {
+                biggest = xcorr_buf[i];
+                peak_index = i;
+            }
+        }
+        
+        //uint16_t c = 343; // speed in air
+        // (lag_samples * sample_time) * air_speed / 2
+        // peak index is in kilosamples. This math manover makes the samples come in micrometers 
+        distance = ((peak_index * 1000 * air_speed) / sr) >> 1; // in micrometers
+        if (abs((distance / 1000000) - BAN_DISTANCE/100) > 0.0000001) {
+            return distance;
+        }
+        pocni = peak_index + 10; // offset it so it can get a real size
+        cnt++;
+    }
     return distance;
 }

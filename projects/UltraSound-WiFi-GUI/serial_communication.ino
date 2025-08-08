@@ -1,3 +1,4 @@
+// Fix this
 void serial_send_array(const uint8_t* data, size_t size, const char* channel, uint8_t adc_total_ch_num) {
     const size_t chunk_size = 32; // buffer is 32 bytes, but 32 for 2400 data samples
     if (adc_total_ch_num == 3) {

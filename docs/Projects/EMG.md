@@ -174,7 +174,7 @@ The next step is to write and configure the Arduino sketch responsible for data 
 
 For EMG, a sampling rate of about $$1.5\mathrm{kHz}$$ is usually sufficient. However, to improve the quality of future digital post-processing, this project uses a high oversampling rate of $$f_s = 25.6\mathrm{kHz}$$. Each channel uses a buffer of $$N_s = 1024 \ \mathrm{samples}$$. ADC is configured with DMA to minimize CPU load and maximize performance. The ideal theoretical duration of one complete measurement cycle is given as:
 
-$$d_{meas} = \frac{N_s}{f_s} = \frac{1024 \ \mathrm{samples}}{25.6\mathrm{kHz}} = 40\mathrm{ms} $$
+$$d_{meas, \ ideal} = \frac{N_s}{f_s} = \frac{1024 \ \mathrm{samples}}{25.6\mathrm{kHz}} = 40\mathrm{ms} $$
 
 {: .NOTE}
 The measurement duration is independent of the number of selected channels. ADC is designed to maintain its sampling frequency **per channel**.
@@ -251,18 +251,45 @@ Alternatively, WiFi can be used for data transfer by implementing a method simil
 
 ## Signal Processing
 
-A 1-second history allows the filter to capture multiple cycles of low-frequency components, such as 10Hz (1 cycle every 100ms) or even lower frequencies (e.g., motion artifacts below 10Hz). This improves:
+EMG post-processing was made in MATLAB. You can find the main block diagram below. The main components of filtering contains of storing the data in a longer buffer, applying filtering, enveloping and making a decision based on the final processed data: either the button on the keyboartd is presed, hold or released.
 
-The filter's ability to attenuate noise and artifacts.
-The preservation of desired signal components, especially in the lower frequency band.
+[picture: block diagram]
+
+### Problematic ADC Readings
+
+First, let's discuss the incoming RAW data to MATLAB. There was noticed a weird behaviour with the first couple of samples at each measurement cycle. They always abnormally high and after 5-10 samples stabilized around expected values.
+
+[picture: weired samples]
+
+It is not certain what exactly causes this behaviour, most probably is high input capacitance to ADC due to using the electrodes and all this bio setup.
+
+To fix it fast, script just removes the first 8 samples from each measurement cycle, using only stable ADC data, keep that in mind while calculating the sizes for next steps.
+
+### The Buffer
+
+After triggering the measurement cycle which lasts for $$d_{meas, ideal} = 40\mathrm{ms}$$, the incoming data is stored in a buffer that contains the whole **1 second** of these measurement cycles. Works like FIFO, the oldest measurement is out, the whole buffer shifts to the left and the freed up space is taken by the new one.
+
+{: .NOTE}
+The buffer size is calculated based on $$d_{meas, ideal}$$ which means that actual buffer contains data for a bit longer period than calculated.
+
+Processing on this longer buffer helps multiple cycles of low-frequency components being captured and properly filtered out which improves filter's ability to attenuate noise and artifact and preservation of desired signal components.
 
 A longer history allows low-pass filters (used in envelope detection) to smooth the rectified signal over a larger time frame, resulting in a more robust and stable envelope.
-For example, a 5Hz low-pass filter requires at least 200ms of data for one full cycle. With a 1-second history, the envelope will be less sensitive to short-term fluctuations or noise.
 
- Sliding Overlapping Windows
+For example, a 5Hz low-pass filter requires at least 200ms of data for one full cycle. With a 1-second history, the envelope will be less sensitive to short-term fluctuations or noise.
 
 Use a 1-second buffer for filtering and envelope detection, but process overlapping chunks (e.g., update every 40ms). This ensures that decisions are updated frequently without sacrificing the filtering accuracy of the longer window.
 
+{: .NOTE}
+There is a logic that doesn't start the plotting or decision making before the whole buffer is filled when you start the program.
+
+### FIR Filter
+
+### Rectification
+
+### Envelope
+
+### Decision Block
 
 ![alt text]({{site.baseurl}}/Projects/image-2.png)
 

@@ -10,7 +10,7 @@ uint8_t error_led = D86;
 /* -------------------------------------------------------------------------- */
 /*                                  Settings                                  */
 /* -------------------------------------------------------------------------- */
-#define IS_TRANSMIT_DETAILED_DATA   false    // activate full raw, filtered, xcorr data transmission
+#define IS_TRANSMIT_DETAILED_DATA   true    // activate full raw, filtered, xcorr data transmission
 #define BAN_DISTANCE	            20	    // min distance [cm] - how many self reflections cancelled
 #define ACTUAL_SAMPLING_RATE        250000  // You need to measure this value using a wave generator with a fixed e.g. 1kHz Sine
 #define STORE_BUF_SIZE              32 * 32 // 2400 for 1 measurement per second. 
@@ -197,10 +197,10 @@ void process_and_transmit_data(float* buf, const uint16_t buf_size, uint16_t* ch
     // Rescale from [0, (2^16-1)] to [-1, 1] and filter around 32 kHz
     clear_float_buf(buf, buf_size);
     rescale_adc_wave(buf, ch_array, ch_array_size);
-	if (ban_flag == 1) {
+    filter_32kHz_wave(buf, buf_size);
+    if (ban_flag == 1) {
         remove_coupling(buf, c_banned_sample_num);
-    }
-    filter_32kHz_wave(buf, buf_size);   
+    } 
     if (is_detailed_transmission)
         transfer_serial_data_float(buf, buf_size, 32);
 
@@ -219,7 +219,10 @@ void transfer_serial_data(uint16_t* data, const uint16_t data_length, const uint
 }
 
 void transfer_serial_data_float(float* data, const uint16_t data_length, const uint16_t chunk_size_byte) {
-
+    for (uint16_t i = 0; i < (data_length*4); i += chunk_size_byte) {
+        uint16_t transfer_size = ((data_length*4) - i < chunk_size_byte) ? (data_length*4 - i) : chunk_size_byte;
+        Serial.write((const uint8_t *) data + i, transfer_size);
+    }
 }
 
 void handle_error() {

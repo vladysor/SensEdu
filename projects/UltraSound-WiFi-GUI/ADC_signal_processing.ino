@@ -1,3 +1,13 @@
+/* -------------------------------------------------------------------------- */
+/*                           ADC DATA REARRANGEMENT                           */
+/* -------------------------------------------------------------------------- */
+void get_channel_data(uint16_t* adc_array, uint16_t* ch_buf, const uint16_t ch_buf_size, const uint16_t total_ch_num, const uint8_t selected_ch) {
+    for(uint16_t i = 0; i < ch_buf_size; i++) {
+        // if this bottlenecks the execution, use DMA for data rearrangement or move it to MATLAB
+        ch_buf[i] = adc_array[i*total_ch_num + selected_ch];
+    }
+}
+
 /*------------------------------------------------------------------*/
 /*                     CROSS-CORRELATION FUNCTION                   */
 /*------------------------------------------------------------------*/
@@ -39,51 +49,20 @@ void filter_32kHz_wave(float* rescaled_adc_wave, uint16_t adc_data_length) {
 /*------------------------------------------------------------------*/
 /*                     RESCALING FUNCTION                           */
 /*------------------------------------------------------------------*/
-void rescale_adc_wave(float* rescaled_adc_wave, uint16_t* adc_wave, const char* channel, size_t adc_data_length, uint8_t adc_channel_num) {
+void rescale_adc_wave(float* rescaled_adc_wave, uint16_t* adc_wave, size_t adc_data_length) {
     // 0:65535 -> -1:1
-    char ch = channel[0];
-    uint32_t cnt = 0;
-    clear_float_buf(rescaled_adc_wave, STORE_BUF_SIZE);
-
-    switch(adc_channel_num) {
-        case 2:
-            if(ch=='1') {
-                for(uint32_t i = 0; i < 2 * STORE_BUF_SIZE; i+=2) {
-                    rescaled_adc_wave[cnt] = (2.0f * adc_wave[i])/65535.0f - 1.0f;
-                    cnt++;
-                }
-            }
-            else if(ch=='2') {
-                for(uint32_t i = 1; i < 2 * STORE_BUF_SIZE; i+=2) {
-                    rescaled_adc_wave[cnt] = (2.0f * adc_wave[i])/65535.0f - 1.0f;
-                    cnt++;
-                }
-            }
-            break;
-        case 3:
-            if(ch=='1') {
-                for(uint32_t i = 0; i < 3 * STORE_BUF_SIZE; i+=3) {
-                    rescaled_adc_wave[cnt] = (2.0f * adc_wave[i])/65535.0f - 1.0f;
-                    cnt++;
-                }
-            }
-            else if(ch=='2') {
-                for(uint32_t i = 1; i < 3 * STORE_BUF_SIZE; i+=3) {
-                    rescaled_adc_wave[cnt] = (2.0f * adc_wave[i])/65535.0f - 1.0f;
-                    cnt++;
-                }
-            }
-            else if(ch=='3') {
-                for(uint32_t i = 2; i < 3 * STORE_BUF_SIZE; i+=3) {
-                    rescaled_adc_wave[cnt] = (2.0f * adc_wave[i])/65535.0f - 1.0f;
-                    cnt++;
-                }
-            }
-            break;
-        default:
-            break;
+    for(uint16_t i = 0; i < adc_data_length; i++) {
+        rescaled_adc_wave[i] = (2.0f * adc_wave[i])/65535.0f - 1.0f;
     }
-    filter_32kHz_wave(rescaled_adc_wave, STORE_BUF_SIZE);   
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                BAN COUPLING                                */
+/* -------------------------------------------------------------------------- */
+void remove_coupling(float* adc_wave, const uint16_t banned_sample_num) {
+    for (uint16_t i = 0; i < banned_sample_num; i++) {
+        adc_wave[i] = 0;
+    }
 }
 
 /*------------------------------------------------------------------*/
@@ -102,7 +81,6 @@ float calculate_distance(float *xcorr_buf) {
             }
         }
         
-        //uint16_t c = 343; // speed in air
         // (lag_samples * sample_time) * air_speed / 2
         // peak index is in kilosamples. This math manover makes the samples come in micrometers 
         distance = ((peak_index * 1000 * air_speed) / sr) >> 1; // in micrometers

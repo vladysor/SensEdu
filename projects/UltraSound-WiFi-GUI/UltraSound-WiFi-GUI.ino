@@ -10,7 +10,7 @@ uint8_t error_led = D86;
 /* -------------------------------------------------------------------------- */
 /*                                  Settings                                  */
 /* -------------------------------------------------------------------------- */
-#define IS_TRANSMIT_DETAILED_DATA   true    // activate full raw, filtered, xcorr data transmission
+#define IS_TRANSMIT_DETAILED_DATA   false    // activate full raw, filtered, xcorr data transmission
 #define BAN_DISTANCE	            20	    // min distance [cm] - how many self reflections cancelled
 #define ACTUAL_SAMPLING_RATE        250000  // You need to measure this value using a wave generator with a fixed e.g. 1kHz Sine
 #define STORE_BUF_SIZE              32 * 32 // 2400 for 1 measurement per second. 
@@ -83,7 +83,7 @@ SensEdu_DAC_Settings dac_settings = {dac_channel, DAC_SAMPLE_RATE, (uint16_t*)si
 const uint16_t air_speed = 343; // m/s
 
 // e.g. 25cm ban means 0.25*2/343 time ban, then multiply by sample rate
-const uint32_t banned_sample_num = ((BAN_DISTANCE*2*ACTUAL_SAMPLING_RATE)/air_speed)/100; 
+const uint32_t c_banned_sample_num = ((BAN_DISTANCE*2*ACTUAL_SAMPLING_RATE)/air_speed)/100; 
 
 /* -------------------------------------------------------------------------- */
 /*                              Global Structure                              */
@@ -91,10 +91,8 @@ const uint32_t banned_sample_num = ((BAN_DISTANCE*2*ACTUAL_SAMPLING_RATE)/air_sp
 typedef struct {
 	uint8_t ban_flag; // activate self reflections ban
 	char serial_read_buf;
-    float xcorr_buffer[STORE_BUF_SIZE]; // use same buffer for several functions for memory saving
-    float modified_xcorr_buffer[STORE_BUF_SIZE]; // use same buffer for several functions for memory saving
-    uint8_t trust;
-    
+    float processing_buffer[STORE_BUF_SIZE]; // reusable float buffer for signal processing
+    uint16_t channel_buffer[STORE_BUF_SIZE]; // data rearrangement
 } SenseduBoard;
 
 static SenseduBoard SenseduBoardObj;
@@ -165,21 +163,22 @@ void loop() {
     SensEdu_ADC_ClearTransferStatus(adc2);
 
     // Calculating distance for each microphone
-    static uint32_t distance[4];
-    process_and_transmit_data(main_obj_ptr->xcorr_buffer, sizeof(main_obj_ptr->xcorr_buffer), adc1_data, sizeof(adc1_data), "1", 2, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
-    distance[0] = calculate_distance(main_obj_ptr->xcorr_buffer);
-    process_and_transmit_data(main_obj_ptr->xcorr_buffer, sizeof(main_obj_ptr->xcorr_buffer), adc1_data, sizeof(adc1_data), "2", 2, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
-    distance[1] = calculate_distance(main_obj_ptr->xcorr_buffer);
-    process_and_transmit_data(main_obj_ptr->xcorr_buffer, sizeof(main_obj_ptr->xcorr_buffer), adc2_data, sizeof(adc2_data), "1", 2, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
-	distance[2] = calculate_distance(main_obj_ptr->xcorr_buffer);
-    process_and_transmit_data(main_obj_ptr->xcorr_buffer, sizeof(main_obj_ptr->xcorr_buffer), adc2_data, sizeof(adc2_data), "2", 2, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
-    distance[3] = calculate_distance(main_obj_ptr->xcorr_buffer);
+    static uint32_t distance[adc1_mic_num + adc2_mic_num];
+    for(uint8_t i = 0; i < adc1_mic_num; i++) {
+        get_channel_data(adc1_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc1_mic_num, i);
+        process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
+        distance[i] = calculate_distance(main_obj_ptr->processing_buffer);
+    }
+    for(uint8_t i = 0; i < adc2_mic_num; i++) {
+        get_channel_data(adc2_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc2_mic_num, i);
+        process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
+        distance[adc1_mic_num + i] = calculate_distance(main_obj_ptr->processing_buffer);
+    }
 
     // Sending the distance measurements
-    Serial.write((const uint8_t *) &distance[0], 4);
-    Serial.write((const uint8_t *) &distance[1], 4);
-    Serial.write((const uint8_t *) &distance[2], 4);
-    Serial.write((const uint8_t *) &distance[3], 4);
+    for (uint8_t i = 0; i < (adc1_mic_num + adc2_mic_num); i++) {
+        Serial.write((const uint8_t *) &distance[i], 4);
+    }
 
     // check errors
     lib_error = SensEdu_GetError();
@@ -188,28 +187,42 @@ void loop() {
     }
 }
 
-void process_and_transmit_data(float* xcorr_buf, size_t xcorr_buf_size, uint16_t* mic_array, size_t mic_array_size, 
-    const char* channel, uint8_t adc_ch_num, uint8_t ban_flag, uint8_t is_detailed_transmission) {
+void process_and_transmit_data(float* buf, const uint16_t buf_size, uint16_t* ch_array, const uint16_t ch_array_size, uint8_t ban_flag, uint8_t is_detailed_transmission) {
 
     /* -------------------------------- RAW DATA -------------------------------- */
     if (is_detailed_transmission)
-        serial_send_array((const uint8_t*)mic_array, mic_array_size, channel, adc_ch_num);
+        transfer_serial_data(ch_array, ch_array_size, 32);
     
     /* --------------------- RESCALED, FILTERED, NO COUPLED --------------------- */
     // Rescale from [0, (2^16-1)] to [-1, 1] and filter around 32 kHz
-    rescale_adc_wave(xcorr_buf, mic_array, channel, mic_array_size, adc_ch_num);
+    clear_float_buf(buf, buf_size);
+    rescale_adc_wave(buf, ch_array, ch_array_size);
 	if (ban_flag == 1) {
-        // remove self reflections from a dataset
-		for (uint32_t i = 0; i < banned_sample_num; i++) {
-			xcorr_buf[i] = 0;
-		}
-	}
+        remove_coupling(buf, c_banned_sample_num);
+    }
+    filter_32kHz_wave(buf, buf_size);   
     if (is_detailed_transmission)
-        serial_send_array((const uint8_t*)xcorr_buf, xcorr_buf_size, "b", 1);
+        transfer_serial_data_float(buf, buf_size, 32);
 
     /* ---------------------------------- XCORR --------------------------------- */
-	custom_xcorr(xcorr_buf, dac_wave, STORE_BUF_SIZE);
+	custom_xcorr(buf, dac_wave, buf_size);
     if (is_detailed_transmission)
-	    serial_send_array((const uint8_t*)xcorr_buf, xcorr_buf_size, "b", 1);
+	    transfer_serial_data_float(buf, buf_size, 32);
     
+}
+
+void transfer_serial_data(uint16_t* data, const uint16_t data_length, const uint16_t chunk_size_byte) {
+    for (uint16_t i = 0; i < (data_length*2); i += chunk_size_byte) {
+        uint16_t transfer_size = ((data_length*2) - i < chunk_size_byte) ? (data_length*2 - i) : chunk_size_byte;
+        Serial.write((const uint8_t *) data + i, transfer_size);
+    }
+}
+
+void transfer_serial_data_float(float* data, const uint16_t data_length, const uint16_t chunk_size_byte) {
+
+}
+
+void handle_error() {
+    // serial is taken by matlab, use LED as indication
+    digitalWrite(error_led, LOW);
 }

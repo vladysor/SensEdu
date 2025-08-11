@@ -3,7 +3,7 @@ title: Chirp Signal Generation
 layout: default
 math: mathjax
 parent: Projects
-nav_order: 2
+nav_order: 3
 ---
 
 # Chirp Signal Generation

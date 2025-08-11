@@ -8,11 +8,11 @@ addpath("plot scripts\");
 
 %% Parameters
 ITERATIONS = 25; 
-MIC_NUM = 4;
-MIC_NAMES = {"MIC 1", "MIC 2","MIC 3", "MIC 4"};
+MIC_NUM = 1;
+MIC_NAMES = {"MIC 1"};
 DATA_LENGTH = 32 * 32;
 PROCESSING_STEPS = 3; % raw, fitlered, xcorr
-ENABLE_LIVE_PLOTS = false;
+ENABLE_LIVE_PLOTS = true;
 
 %% Arduino Setup + Config
 % Serial port configuration 
@@ -23,7 +23,13 @@ arduino = serialport(ARDUINO_PORT, ARDUINO_BAUDRATE); % select port and baudrate
 %% Arrays
 dist_matrix = zeros(MIC_NUM, ITERATIONS); % distance matrix
 processing_matrix = zeros(ITERATIONS, MIC_NUM, PROCESSING_STEPS, DATA_LENGTH); % all processing steps data
+processing_matrix_size = size(processing_matrix);
 time_axis = zeros(1, ITERATIONS); %  time array
+
+%% Prepare Figure
+if ENABLE_LIVE_PLOTS == true
+    figure("Position",[500, 500, 1250, 300]);
+end
 
 %% Readings Loop
 pause(1);
@@ -40,7 +46,7 @@ for it = 1:ITERATIONS
     dist_matrix(:, it) = read_distance_data(arduino, MIC_NUM);
 
     if ENABLE_LIVE_PLOTS == true
-        plot_live_data(squeeze(processing_matrix(it,:,:,:)), dist_matrix(:,:));
+        plot_live_data(reshape(processing_matrix(it,:,:,:), processing_matrix_size(2:end)), dist_matrix(:,:));
     end
 end
 acquisition_time = toc;
@@ -91,20 +97,6 @@ xlabel("time [s]");
 ylabel("distance [m]")
 legend(MIC_NAMES);
 title("Microphone distance measurements")
-beautify_plot(gcf, 1);
-
-%% Plotting 2
-figure
-for i = 1:MIC_NUM
-    subplot(MIC_NUM, 1, i);
-    plot(time_axis, dist_matrix(i, :), 'LineWidth', 2)
-    ylim([0 1])
-    xlim([0 time_axis(end)])
-    grid on
-    xlabel("time [s]");
-    ylabel("distance [m]")
-    title(MIC_NAMES(i));
-end
 beautify_plot(gcf, 1);
 
 %% Functions

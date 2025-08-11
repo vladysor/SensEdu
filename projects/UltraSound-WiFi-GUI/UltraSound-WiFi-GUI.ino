@@ -25,21 +25,18 @@ arm_fir_instance_f32 Fir_filt; // creating an object instance
 
 /* ----------------------------------- ADC ---------------------------------- */
 ADC_TypeDef* adc1 = ADC1;
-ADC_TypeDef* adc2 = ADC2;
 
-const uint8_t adc1_mic_num = 2; // 2 microphones for adc1
-const uint8_t adc2_mic_num = 2; // 2 microphones for adc2
-
-uint8_t adc1_pins[adc1_mic_num] = {A5, A10}; // mic1 and mic2
-uint8_t adc2_pins[adc2_mic_num] = {A1, A6}; // mic3 and mic4 
+// HARDCODED FOR ONE CHANNEL OPERATION
+// LOOK INTO /projects/UltraSound/extra/ultrasonic_distance_acq_detailed_dataset/
+// FOR FLEXIBLE (BUT SLOWER) IMPLEMENTATION
+const uint8_t adc1_mic_num = 1;
+uint8_t adc1_pins[adc1_mic_num] = {A5}; // mic1
 
 // must be:
 // 1. multiple of 32 words (64 half-words) to ensure cache coherence
 // 2. properly aligned
 const uint16_t adc1_data_size = STORE_BUF_SIZE * adc1_mic_num;
-const uint16_t adc2_data_size = STORE_BUF_SIZE * adc2_mic_num;
 __attribute__((aligned(__SCB_DCACHE_LINE_SIZE))) uint16_t adc1_data[adc1_data_size];
-__attribute__((aligned(__SCB_DCACHE_LINE_SIZE))) uint16_t adc2_data[adc2_data_size];
 
 SensEdu_ADC_Settings adc1_settings = {
     .adc = adc1,
@@ -52,19 +49,6 @@ SensEdu_ADC_Settings adc1_settings = {
     .dma_mode = SENSEDU_ADC_DMA_CONNECT,
     .mem_address = (uint16_t*)adc1_data,
     .mem_size = adc1_data_size
-};
-
-SensEdu_ADC_Settings adc2_settings = {
-    .adc = adc2,
-    .pins = adc2_pins,
-    .pin_num = adc2_mic_num,
-
-    .conv_mode = SENSEDU_ADC_MODE_CONT_TIM_TRIGGERED,
-    .sampling_freq = 250000,
-    
-    .dma_mode = SENSEDU_ADC_DMA_CONNECT,
-    .mem_address = (uint16_t*)&adc2_data,
-    .mem_size = adc2_data_size
 };
 
 /* ----------------------------------- DAC ---------------------------------- */
@@ -117,10 +101,6 @@ void setup() {
     SensEdu_ADC_Init(&adc1_settings);
     SensEdu_ADC_Enable(adc1);
 
-    /* ADC 2 */
-    SensEdu_ADC_Init(&adc2_settings);
-    SensEdu_ADC_Enable(adc2);
-
     lib_error = SensEdu_GetError();
     while (lib_error != 0) {
         handle_error();
@@ -152,31 +132,20 @@ void loop() {
     
     // Start ADCs
     SensEdu_ADC_Start(adc1);
-    SensEdu_ADC_Start(adc2);
 
     // Wait for the data from ADC1
     while(!SensEdu_ADC_GetTransferStatus(adc1));
     SensEdu_ADC_ClearTransferStatus(adc1);
 
-    // Wait for the data from ADC2
-    while(!SensEdu_ADC_GetTransferStatus(adc2));
-    SensEdu_ADC_ClearTransferStatus(adc2);
-
     // Calculating distance for each microphone
-    static uint32_t distance[adc1_mic_num + adc2_mic_num];
+    static uint32_t distance[adc1_mic_num];
     for(uint8_t i = 0; i < adc1_mic_num; i++) {
-        get_channel_data(adc1_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc1_mic_num, i);
-        process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
+        process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, adc1_data, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
         distance[i] = calculate_distance(main_obj_ptr->processing_buffer);
-    }
-    for(uint8_t i = 0; i < adc2_mic_num; i++) {
-        get_channel_data(adc2_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc2_mic_num, i);
-        process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
-        distance[adc1_mic_num + i] = calculate_distance(main_obj_ptr->processing_buffer);
     }
 
     // Sending the distance measurements
-    for (uint8_t i = 0; i < (adc1_mic_num + adc2_mic_num); i++) {
+    for (uint8_t i = 0; i < (adc1_mic_num); i++) {
         Serial.write((const uint8_t *) &distance[i], 4);
     }
 

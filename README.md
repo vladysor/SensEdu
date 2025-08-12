@@ -68,13 +68,14 @@
 To get started, you can explore the hardware interface by following the examples provided in the SensEdu library (`Arduino\libraries\SensEdu\examples\`). A detailed description of all functions can be found in the <a href="https://shiegechan.github.io/SensEdu/library/" target="_blank">Documentation</a> under the "SensEdu Library" section.
 
 In the `projects/` directory, you will find several complete projects designed for this board, including:
-* **Ultrasonic Distance Measurements** *(in progress)*
+* **Ultrasonic Ranging**
+* **Ultrasonic Ranging via WiFi with GUI** *(coming soon)*
 * **Chirp Signal Generation**
-* **FMCW Radar** *(in progress)*
+* **FMCW Radar**
 * **Doppler Radar** *(coming soon)*
 * **FSK Communication** *(coming soon)*
+* **EMG BioInputs** *(in progress)*
 * **Weather Station** *(in progress)*
-* **WiFi MATLAB Communication** *(coming soon)*
 
 Detailed explanations for each project are available in the "Projects" section of the <a href="https://shiegechan.github.io/SensEdu/projects/" target="_blank">Documentation</a>.
 

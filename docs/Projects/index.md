@@ -50,5 +50,11 @@ Moreover, the board is equipped with a *barometric sensor* which enables atmosph
 * Motion pattern recognition (e.g., falling)
 * Robot vertical navigation
 
+### General Purpose Instrumentation Amplifiers
+SensEdu is equipped with extra x2 dual-channel amplifiers [AD8222](https://www.analog.com/media/en/technical-documentation/data-sheets/ad8222.pdf). Their inputs are wired to headers, making them suitable for any application that requires a simple Amplification → ADC signal path. This is the final piece that makes SensEdu an excellent tool for basic sensor systems education, enabling a wide range of projects such as:
+* Various bio-signals projects, e.g., Electromyography (EMG)
+* Strain Gauge Measurements
+* Thermocouple Measurements
+
 [BBC Science Focus]: https://www.sciencefocus.com/nature/how-does-echolocation-work
 [Microcontrollertips]: https://www.microcontrollertips.com/principle-applications-limitations-ultrasonic-sensors-faq/

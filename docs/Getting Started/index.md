@@ -15,37 +15,42 @@ Follow these steps to begin developing your projects with SensEdu.
 {: .NOTE}
 *If you prefer video tutorials, we have an [installation guide] on YouTube (not yet).*
 
-**Step 1**{: .text-green-200} : Download and Install [Arduino IDE]
+**Step 1**{: .text-green-200} : Connect SensEdu Shield to the Arduino GIGA R1. **By default, the power and speakers are disabled.** To enable them, place a small [2-pin jumper](https://mou.sr/41uQmLm) onto headers **J18**, **J17**, and **J8**, according to the desired settings. The standard configuration is shown in the figure below (more details in [PCB section]({% link PCB/index.md%}#key-headersjumpers))
 
-**Step 2**{: .text-green-200} : Open the *Boards Manager* tab, search for `giga` and install the latest version of *Arduino Mbed OS Giga Boards* package
+<img src="{{site.baseurl}}/assets/images/GettingStartedJumpers.png" alt="drawing"/>
+{: .text-center}
+
+**Step 2**{: .text-green-200} : Download and Install [Arduino IDE]
+
+**Step 3**{: .text-green-200} : Open the *Boards Manager* tab, search for `giga` and install the latest version of *Arduino Mbed OS Giga Boards* package
 
 <img src="{{site.baseurl}}/assets/images/boards_install.png" alt="drawing"/>
 {: .text-center}
 
-**Step 3**{: .text-green-200} : Download the latest [SensEdu release]
+**Step 4**{: .text-green-200} : Download the latest [SensEdu release]
 
 <img src="{{site.baseurl}}/assets/images/release_install.png" alt="drawing"/>
 {: .text-center}
 
-**Step 4**{: .text-green-200} : Unzip downloaded files to a preferred location on your system
+**Step 5**{: .text-green-200} : Unzip downloaded files to a preferred location on your system
 
 <video muted controls playsinline>
     <source src="{{site.baseurl}}/assets/videos/install_unzip.mp4" type="video/mp4">
     Video is broken.
 </video>
 
-**Step 5**{: .text-green-200} : Move extracted contents of `library` folder to the Arduino folder `My Documents\Arduino\libraries\`
+**Step 6**{: .text-green-200} : Move extracted contents of `library` folder to the Arduino folder `My Documents\Arduino\libraries\`
 
 <video muted controls playsinline>
     <source src="{{site.baseurl}}/assets/videos/install_libs.mp4" type="video/mp4">
     Video is broken.
 </video>
 
-**Step 6**{: .text-green-200} : Navigate to `File → Examples → SensEdu` and select `Blink_Delay` example
+**Step 7**{: .text-green-200} : Navigate to `File → Examples → SensEdu` and select `Blink_Delay` example
 
-**Step 7**{: .text-green-200} : Select `Arduino Giga R1` board and corresponding COM port
+**Step 8**{: .text-green-200} : Select `Arduino Giga R1` board and corresponding COM port
 
-**Step 8**{: .text-green-200} : Click **Upload** to compile and upload the sketch to your board. If the built-in LED starts blinking, the setup was successful!
+**Step 9**{: .text-green-200} : Click **Upload** to compile and upload the sketch to your board. If the built-in LED starts blinking, the setup was successful!
 
 <img src="{{site.baseurl}}/assets/images/select_install.png" alt="drawing"/>
 {: .text-center}

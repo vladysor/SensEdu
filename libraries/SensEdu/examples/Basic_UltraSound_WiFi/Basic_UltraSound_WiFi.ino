@@ -44,10 +44,11 @@ SensEdu_ADC_Settings adc_settings = {
 /* WiFi settings */
 char *ssid = "TestWifi";
 char *pass = "test1234";
+uint16_t port = 80;
 
 int status = WL_IDLE_STATUS;
 
-WiFiServer server(80);
+WiFiServer server(port);
 
 /* errors */
 uint32_t lib_error = 0;
@@ -75,13 +76,13 @@ void setup() {
 
     // attempt connection to WiFi network
     while (status != WL_CONNECTED) {
-    Serial.print("Attempting to connect to SSID: ");
-    Serial.println(ssid);
-    // connect to WPA/WPA2 network (change this if youre using open / WEP network)
-    status = WiFi.begin(ssid, pass);
+        Serial.print("Attempting to connect to SSID: ");
+        Serial.println(ssid);
+        // connect to WPA/WPA2 network (change this if youre using open / WEP network)
+        status = WiFi.begin(ssid, pass);
 
-    // wait 10 seconds for connection:
-    delay(10000);
+        // wait 10 seconds for connection:
+        delay(10000);
     }
     server.begin();
     // connection established; print out the status:

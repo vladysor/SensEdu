@@ -17,7 +17,7 @@ These examples illustrate more complex, yet fundamental, applications of multipl
 
 ## Basic Ultrasound Examples
 
-These examples demonstrate how to transmit a 32kHz ultrasonic wave at a constant sampling rate. The reflected wave is then captured and sent to a PC via Serial communication. Using MATLAB, you can visualize and potentially process the wave. By placing an object on top of the SensEdu, you can observe wave reflections.
+These examples demonstrate how to transmit a 32kHz ultrasonic wave at a constant sampling rate. The reflected wave is then captured and sent to a PC via Serial or WiFi communication. Using MATLAB, you can visualize and potentially process the wave. By placing an object on top of the SensEdu, you can observe wave reflections.
 
 {: .IMPORTANT}
 To run these examples, you need to install [MATLAB].
@@ -163,7 +163,7 @@ DATA_LENGTH = 16*128; % ensure this value matches `mic_data_size` in firmware
 arduino = serialport(ARDUINO_PORT, ARDUINO_BAUDRATE);
 ```
 
-**Step 11**{: .text-blue-000} : Write a function in MATLAB to receive data from Arduino. The function should handle 16-bit samples sent in bytes, so each sample consisting of 2 bytes. In the firmware, data is sent in 32-byte chunks, and the MATLAB function should match this to avoid synchronization issues.
+**Step 11**{: .text-blue-000} : Write a function in MATLAB to receive the data from Arduino. The function should handle 16-bit samples sent in bytes, so each sample consisting of 2 bytes. In the firmware, data is sent in 32-byte chunks, and the MATLAB function should match this to avoid synchronization issues.
 
 ```matlab
 function data = read_data(arduino, data_length)
@@ -305,9 +305,9 @@ Second figure shows measurements with a flat object placed near the board. Here,
 
 ### Basic_UltraSound_WiFi
 
-Utilizes WiFi for data transmission.
+Utilizes only one microphone. The example is similar to [Basic_UltraSound]({% link Library/Others.md %}#basic_ultrasound), but uses WiFi as communication medium instead of Serial.
 
-**Step 1**{: .text-blue-000} : Include the SensEdu and WiFi libraries.
+**Step 1**{: .text-blue-000} : Include SensEdu and WiFi libraries.
 
 ```c
 #include "SensEdu.h"
@@ -377,13 +377,14 @@ SensEdu_ADC_Settings adc_settings = {
 ```c
 char *ssid = "TestWifi";
 char *pass = "test1234";
+uint16_t port = 80;
 
 int status = WL_IDLE_STATUS;
 
-WiFiServer server(80);
+WiFiServer server(port);
 ```
 
-**Step 6**{: .text-blue-000} : Initialize DAC and ADC with created structs. Enable Serial for communication with PC (for retrieving the boards IP later). Attempt connection with the previosuly defined WiFi network.
+**Step 6**{: .text-blue-000} : Initialize DAC and ADC with created structs. Enable Serial for communication with PC (for retrieving the boards IP later). Attempt connection with the previously defined WiFi network.
 
 ```c
 void setup() {
@@ -395,19 +396,19 @@ void setup() {
 
     // attempt connection to WiFi network
     while (status != WL_CONNECTED) {
-    Serial.println(ssid);
-    // connect to WPA/WPA2 network (change this if youre using open / WEP network)
-    status = WiFi.begin(ssid, pass);
+        Serial.println(ssid);
+        // connect to WPA/WPA2 network (change this if youre using open / WEP network)
+        status = WiFi.begin(ssid, pass);
 
-    // wait 10 seconds for connection
-    delay(10000);
+        // wait 10 seconds for connection
+        delay(10000);
     }
     server.begin();
 }
 ```
 
-**Step 6**{: .text-blue-000} : Create a buffer that waits for a command (e.g., symbol "t") from MATLAB.
-Print your boards IP-address to serial so you can note it down later.
+**Step 6**{: .text-blue-000} : Create a buffer that waits for a trigger command (symbol "t") from MATLAB.
+Print the board's IP-address in a serial monitor, as it will be needed later.
 
 ```c
 void loop() {
@@ -423,9 +424,10 @@ void loop() {
         while(client.connected()){
             if (client.available()) {
                 buf = client.read();
-                if(buf == 't') { // trigger detected -> send
-                
-                   // do stuff
+                if(buf == 't') {
+                    // trigger detected -> initiate measurements
+                    // do stuff
+                    // transmit data to PC
                 }
             }
         }
@@ -465,7 +467,7 @@ void wifi_send_array(const uint8_t* data, size_t size, WiFiClient client) {
 }
 ```
 
-**Step 10**{: .text-blue-000} : Open `matlab\Basic_UltraSound_WiFi_ReadData.m`. Specify the required parameters and start the connection with your Arduino.
+**Step 10**{: .text-blue-000} : Open `matlab\Basic_UltraSound_WiFi_ReadData.m`. Specify the required parameters and start the connection with Arduino.
 
 ```matlab
 %% Settings
@@ -478,7 +480,7 @@ DATA_LENGTH = 16*128; % ensure this value matches `mic_data_size` in firmware
 arduino_server = tcpclient(ARDUINO_IP, ARDUINO_PORT);
 ```
 
-**Step 11**{: .text-blue-000} : Write a function in MATLAB to receive data from the Arduino. The function should handle 16-bit samples sent in bytes, so each sample consisting of 2 bytes. In the firmware, data is sent in 32-byte chunks, and the MATLAB function should match this to avoid synchronization issues.
+**Step 11**{: .text-blue-000} : Write a function in MATLAB to receive the data from Arduino. The function should handle 16-bit samples sent in bytes, so each sample consisting of 2 bytes. In the firmware, data is sent in 32-byte chunks, and the MATLAB function should match this to avoid synchronization issues.
 
 ```matlab
 function data = read_data(arduino_server, data_length)
@@ -505,6 +507,16 @@ for it = 1:ITERATIONS
     plot(data);
 end
 ```
+
+**Step 13**{: .text-blue-000} : Connect your PC to the same WiFi network and run the script.
+
+![]({{site.baseurl}}/assets/images/PCWiFiConnection.png)
+
+**Results**{: .text-blue-000} : Below is a figure showing the measurement results.
+
+Notice that with WiFi, your Serial is freed up, allowing to use it for convenient debugging purposes on Arduino or to send data in parallel to the WiFi connection.
+
+![]({{site.baseurl}}/assets/images/WiFiConnection.png)
 
 [STM32H747 Reference Manual]: https://www.st.com/resource/en/reference_manual/rm0399-stm32h745755-and-stm32h747757-advanced-armbased-32bit-mcus-stmicroelectronics.pdf
 

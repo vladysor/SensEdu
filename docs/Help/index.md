@@ -13,7 +13,7 @@ Please start by trying to resolve the issue on your own:
 * Read the [Getting Started]({% link Getting Started/index.md %}) section
 * Use the Search bar on this wiki to find information related to your problem
 * Browse the [Frequently Asked Questions (FAQs)]({% link Help/index.md%}#faqs) below
-* Google your issue
+* ~~ChatGPT~~ Google your issue
 
 If you have tried the above and are still stuck, it is a good time to ask for help.
 
@@ -40,6 +40,10 @@ Please send us an e-mail: <a href="mailto:Vladyslav.Sorokin@infineon.com">Vladys
 #### How to participate in the project?
 {: .no_toc}
 Start with the [Contributing Guide]({%link Contributing/index.md %}) and create a [Discussion] on GitHub, we would discuss your ideas and help you get started!
+
+#### No signal in ultrasonic ranging examples
+{: .no_toc}
+You probably forgot to enable the speaker with 2-pin jumper on SensEdu, follow Step #1 from [Getting Started]({% link Getting Started/index.md %}) section.
 
 
 [Discussion]: https://github.com/ShiegeChan/SensEdu/discussions

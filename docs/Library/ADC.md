@@ -356,7 +356,7 @@ void loop() {
 #### Notes
 {: .no_toc}
 * Compared to single-channel configuration, `SensEdu_ADC_ReadSequence()` returns not a value, but a pointer. Using this pointer, you can access all channels in a sequence with index brackets `[]`.
-* ADC conversions are organised in a "package" called **sequence**. They follow exact order defined in `adc_pins` (A0 → A1 → A2 in this example).
+* ADC conversions are organized in a "package" called **sequence**. They follow exact order defined in `adc_pins` (A0 → A1 → A2 in this example).
 
 
 ### Read_ADC_1CH_TIM

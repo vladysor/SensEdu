@@ -37,6 +37,9 @@ SensEdu_ADC_Enable(ADC1); // Enable ADC1 peripheral
 * [DAC]({% link Library/DAC.md %})
   * Prefix: `SensEdu_DAC_`
   * Source: `\src\dac.c` and `\src\dma.c`
+* [PWM]()
+  * Prefix: `SensEdu_PWM_`
+  * Source: `\src\pwm.c`
 
 You can explore all available functions in the respective wiki sections or by looking into the header files (e.g., `\src\adc.h`):
 
@@ -70,7 +73,8 @@ typedef enum {
     SENSEDU_ERROR_TIMER = 0x1000,
     SENSEDU_ERROR_ADC = 0x2000,
     SENSEDU_ERROR_DMA = 0x3000,
-    SENSEDU_ERROR_DAC = 0x4000
+    SENSEDU_ERROR_DAC = 0x4000,
+    SENSEDU_ERROR_PWM = 0x5000
 } SENSEDU_ERROR;
 ```
 

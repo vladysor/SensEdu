@@ -17,6 +17,7 @@ void SensEdu_TIMER_DelayInit(void);
 void SensEdu_TIMER_Delay_us(uint32_t delay_us);
 
 TIMER_ERROR TIMER_GetError(void);
+
 void TIMER_ADC1Init(void);
 void TIMER_DAC1Init(uint32_t freq);
 void TIMER_ADC1Enable(void);
@@ -25,6 +26,10 @@ void TIMER_ADC1Disable(void);
 void TIMER_DAC1Disable(void);
 void TIMER_ADC1SetFreq(uint32_t freq);
 void TIMER_DAC1SetFreq(uint32_t freq);
+
+void TIMER_PWMInit(void);
+void TIMER_PWMEnable(void);
+void TIMER_PWMDisable(void);
 
 
 #ifdef __cplusplus

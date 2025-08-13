@@ -9,8 +9,13 @@ uint8_t pwm_pin = D7;
 
 void setup() {
     Serial.begin(115200);
+    while(!Serial) {
+        delay(1);
+    }
+    Serial.println("Started Initialization...");
 
     SensEdu_PWM_Init(pwm_pin);
+    SensEdu_PWM_Start();
 
     lib_error = SensEdu_GetError();
     while (lib_error != 0) {

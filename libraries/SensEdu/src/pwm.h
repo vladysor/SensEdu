@@ -14,6 +14,7 @@ typedef enum {
 } PWM_ERROR;
 
 void SensEdu_PWM_Init(uint8_t pin);
+void SensEdu_PWM_Start(void);
 
 PWM_ERROR PWM_GetError(void);
 

@@ -19,6 +19,7 @@ static volatile uint8_t delay_flag = 0;
 void tim1_adc1_init(void);
 void tim2_delay_init(void);
 void tim4_dac1_init(void);
+void tim8_pwm_init(void);
 
 /* -------------------------------------------------------------------------- */
 /*                              Public Functions                              */
@@ -92,6 +93,19 @@ void TIMER_DAC1SetFreq(uint32_t freq) {
     WRITE_REG(TIM4->ARR, period - 1U);
 }
 
+void TIMER_PWMInit(void) {
+    tim8_pwm_init();
+}
+
+void TIMER_PWMEnable(void) {
+    WRITE_REG(TIM8->CNT, 0U);
+    SET_BIT(TIM8->CR1, TIM_CR1_CEN);
+}
+
+void TIMER_PWMDisable(void) {
+    CLEAR_BIT(TIM8->CR1, TIM_CR1_CEN);
+}
+
 
 /* -------------------------------------------------------------------------- */
 /*                              Private Functions                             */
@@ -140,7 +154,7 @@ void tim1_adc1_init(void) {
     MODIFY_REG(TIM1->CR2, TIM_CR2_MMS, 0b010 << TIM_CR2_MMS_Pos);
 }
 
-void tim2_delay_init() {
+void tim2_delay_init(void) {
     // Clock
     SET_BIT(RCC->APB1LENR, RCC_APB1LENR_TIM2EN);
 
@@ -156,7 +170,7 @@ void tim2_delay_init() {
     NVIC_EnableIRQ(TIM2_IRQn);
 }
 
-void tim4_dac1_init() {
+void tim4_dac1_init(void) {
     // Clock
     SET_BIT(RCC->APB1LENR, RCC_APB1LENR_TIM4EN);
 
@@ -168,6 +182,31 @@ void tim4_dac1_init() {
     MODIFY_REG(TIM4->CR2, TIM_CR2_MMS, 0b010 << TIM_CR2_MMS_Pos);
 }
 
+void tim8_pwm_init(void) {
+    // Clock
+    SET_BIT(RCC->APB2ENR, RCC_APB2ENR_TIM8EN);
+
+    // Select PWM mode
+    MODIFY_REG(TIM8->CCMR1, TIM_CCMR1_OC1M, 0b0110 << TIM_CCMR1_OC1M_Pos);
+
+    // Preload updates
+    SET_BIT(TIM8->CCMR1, TIM_CCMR1_OC1PE);
+    SET_BIT(TIM8->CR1, TIM_CR1_ARPE);
+
+    // Frequency settings
+    WRITE_REG(TIM8->PSC, 2U - 1U);
+    WRITE_REG(TIM8->ARR, 4U - 1U);
+    WRITE_REG(TIM8->CCR1, 2U - 1U);
+
+    // Enable Capture/Compare
+    SET_BIT(TIM8->CCER, TIM_CCER_CC1E);
+
+    // interrupts
+    SET_BIT(TIM8->DIER, TIM_DIER_UIE); // update event
+    NVIC_SetPriority(TIM8_UP_TIM13_IRQn, 2);
+    NVIC_EnableIRQ(TIM8_UP_TIM13_IRQn);
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                 Interrupts                                 */
 /* -------------------------------------------------------------------------- */
@@ -176,5 +215,11 @@ void TIM2_IRQHandler(void) {
     if (READ_BIT(TIM2->SR, TIM_SR_UIF)) {
         CLEAR_BIT(TIM2->SR, TIM_SR_UIF);
         delay_flag = 0;
+    }
+}
+
+void TIM8_UP_TIM13_IRQHandler(void) {
+    if (READ_BIT(TIM8->SR, TIM_SR_UIF)) {
+        CLEAR_BIT(TIM8->SR, TIM_SR_UIF);
     }
 }

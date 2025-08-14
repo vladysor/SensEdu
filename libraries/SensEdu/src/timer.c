@@ -12,7 +12,6 @@
 static TIMER_ERROR error = TIMER_ERROR_NO_ERRORS;
 static volatile uint8_t delay_flag = 0;
 
-
 /* -------------------------------------------------------------------------- */
 /*                                Declarations                                */
 /* -------------------------------------------------------------------------- */
@@ -106,11 +105,9 @@ void TIMER_PWMDisable(void) {
     CLEAR_BIT(TIM8->CR1, TIM_CR1_CEN);
 }
 
-
 /* -------------------------------------------------------------------------- */
 /*                              Private Functions                             */
 /* -------------------------------------------------------------------------- */
-
 
 void calculate_timer_values(uint32_t freq, uint32_t *PSC, uint32_t *ARR) {
     // uint32_t PSC_MAX = 65535; // 2^16-1

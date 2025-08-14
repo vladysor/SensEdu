@@ -191,17 +191,16 @@ void tim8_pwm_init(void) {
     SET_BIT(TIM8->CR1, TIM_CR1_ARPE);
 
     // Frequency settings
-    WRITE_REG(TIM8->PSC, 2U - 1U);
-    WRITE_REG(TIM8->ARR, 4U - 1U);
-    WRITE_REG(TIM8->CCR1, 2U - 1U);
+    WRITE_REG(TIM8->PSC, 1U - 1U);
+    WRITE_REG(TIM8->ARR, 24U - 1U);
+    WRITE_REG(TIM8->CCR1, 12U - 1U);
 
     // Enable Capture/Compare
     SET_BIT(TIM8->CCER, TIM_CCER_CC1E);
 
-    // interrupts
-    SET_BIT(TIM8->DIER, TIM_DIER_UIE); // update event
-    NVIC_SetPriority(TIM8_UP_TIM13_IRQn, 2);
-    NVIC_EnableIRQ(TIM8_UP_TIM13_IRQn);
+    // Main Output Enable
+    TIM8->EGR |= TIM_EGR_UG;
+    SET_BIT(TIM8->BDTR, TIM_BDTR_MOE);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -212,11 +211,5 @@ void TIM2_IRQHandler(void) {
     if (READ_BIT(TIM2->SR, TIM_SR_UIF)) {
         CLEAR_BIT(TIM2->SR, TIM_SR_UIF);
         delay_flag = 0;
-    }
-}
-
-void TIM8_UP_TIM13_IRQHandler(void) {
-    if (READ_BIT(TIM8->SR, TIM_SR_UIF)) {
-        CLEAR_BIT(TIM8->SR, TIM_SR_UIF);
     }
 }

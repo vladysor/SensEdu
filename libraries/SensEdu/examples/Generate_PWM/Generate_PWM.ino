@@ -1,7 +1,7 @@
 #include "SensEdu.h"
 
 uint32_t lib_error = 0;
-uint8_t pwm_pin = D7;
+uint8_t pwm_pin = D4;
 
 /* -------------------------------------------------------------------------- */
 /*                                    Setup                                   */
@@ -14,7 +14,7 @@ void setup() {
     }
     Serial.println("Started Initialization...");
 
-    SensEdu_PWM_Init(pwm_pin);
+    SensEdu_PWM_Init(pwm_pin, 1, 1);
     SensEdu_PWM_Start();
 
     lib_error = SensEdu_GetError();

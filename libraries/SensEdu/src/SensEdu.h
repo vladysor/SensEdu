@@ -1,6 +1,9 @@
 #ifndef __SENSEDU_H__
 #define __SENSEDU_H__
 
+#if !defined(ARDUINO_GIGA)
+    #warning SensEdu Library is designed and tested specifically for the Arduino GIGA R1. Functionality on other boards is not guaranteed.
+#endif
 
 #include "libs.h"
 #include "adc.h"

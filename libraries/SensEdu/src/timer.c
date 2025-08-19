@@ -97,26 +97,13 @@ void TIMER_PWMInit(void) {
 }
 
 void TIMER_PWMEnable(void) {
-    WRITE_REG(TIM8->CNT, 0U);
+    WRITE_REG(TIM8->CNT, 65535U);
     SET_BIT(TIM8->CR1, TIM_CR1_CEN);
 }
 
 void TIMER_PWMDisable(void) {
     CLEAR_BIT(TIM8->CR1, TIM_CR1_CEN);
-}
-
-void TIMER_PWMSetFreq1(uint32_t freq) {
-    uint32_t arr = 0;
-    uint16_t psc = 0;
-    for (psc = 0; psc <= 65535; psc++) {
-        arr = TIM_CLK/(psc + 1);
-        arr = (arr/freq) - 1;
-        if (arr > 0 && arr <= 65535) {
-            break;
-        }
-    }
-    WRITE_REG(TIM8->PSC, psc);
-    WRITE_REG(TIM8->ARR, arr);
+    WRITE_REG(TIM8->CNT, 65535U);
 }
 
 void TIMER_PWMSetFreq(uint32_t freq) {
@@ -282,6 +269,9 @@ void tim8_pwm_init(void) {
     WRITE_REG(TIM8->CCR2, 250U - 1U);
     WRITE_REG(TIM8->CCR3, 750U - 1U);
     WRITE_REG(TIM8->CCR4, 1000U - 1U);
+
+    // Clear Counter
+    WRITE_REG(TIM8->CNT, 65535U);
 
     // Enable Capture/Compare
     SET_BIT(TIM8->CCER, TIM_CCER_CC1E);

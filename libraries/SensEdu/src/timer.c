@@ -222,7 +222,7 @@ void tim2_delay_init(void) {
 
     // interrupts
     SET_BIT(TIM2->DIER, TIM_DIER_UIE); // update event
-    NVIC_SetPriority(TIM2_IRQn, 4);
+    NVIC_SetPriority(TIM2_IRQn, 2);
     NVIC_EnableIRQ(TIM2_IRQn);
 }
 

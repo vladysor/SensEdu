@@ -23,7 +23,6 @@ void tim8_pwm_init(void);
 /* -------------------------------------------------------------------------- */
 /*                              Public Functions                              */
 /* -------------------------------------------------------------------------- */
-
 void SensEdu_TIMER_DelayInit(void) {
     tim2_delay_init();
 }
@@ -97,13 +96,13 @@ void TIMER_PWMInit(void) {
 }
 
 void TIMER_PWMEnable(void) {
-    WRITE_REG(TIM8->CNT, 65535U);
+    SET_BIT(TIM8->EGR, TIM_EGR_UG);
     SET_BIT(TIM8->CR1, TIM_CR1_CEN);
 }
 
 void TIMER_PWMDisable(void) {
     CLEAR_BIT(TIM8->CR1, TIM_CR1_CEN);
-    WRITE_REG(TIM8->CNT, 65535U);
+    SET_BIT(TIM8->EGR, TIM_EGR_UG);
 }
 
 void TIMER_PWMSetFreq(uint32_t freq) {
@@ -143,7 +142,7 @@ void TIMER_PWMSetFreq(uint32_t freq) {
 
 void TIMER_PWMSetDutyCycle(uint8_t channel, uint8_t duty_cycle) {
     uint32_t arr = READ_REG(TIM8->ARR) + 1;
-    uint32_t ccr = (arr*duty_cycle)/100;
+    uint32_t ccr = (arr*(100 - duty_cycle))/100;
     switch(channel) {
         case 1:
             WRITE_REG(TIM8->CCR1, ccr);
@@ -167,7 +166,6 @@ void TIMER_PWMSetDutyCycle(uint8_t channel, uint8_t duty_cycle) {
 /* -------------------------------------------------------------------------- */
 /*                              Private Functions                             */
 /* -------------------------------------------------------------------------- */
-
 void calculate_timer_values(uint32_t freq, uint32_t *PSC, uint32_t *ARR) {
     // uint32_t PSC_MAX = 65535; // 2^16-1
     // uint32_t ARR_MAX = 65535; 
@@ -248,10 +246,10 @@ void tim8_pwm_init(void) {
     SET_BIT(RCC->APB2ENR, RCC_APB2ENR_TIM8EN);
 
     // Select PWM mode
-    MODIFY_REG(TIM8->CCMR1, TIM_CCMR1_OC1M, 0b0110 << TIM_CCMR1_OC1M_Pos);
-    MODIFY_REG(TIM8->CCMR1, TIM_CCMR1_OC2M, 0b0110 << TIM_CCMR1_OC2M_Pos);
-    MODIFY_REG(TIM8->CCMR2, TIM_CCMR2_OC3M, 0b0110 << TIM_CCMR2_OC3M_Pos);
-    MODIFY_REG(TIM8->CCMR2, TIM_CCMR2_OC4M, 0b0110 << TIM_CCMR2_OC4M_Pos);
+    MODIFY_REG(TIM8->CCMR1, TIM_CCMR1_OC1M, 0b0111 << TIM_CCMR1_OC1M_Pos);
+    MODIFY_REG(TIM8->CCMR1, TIM_CCMR1_OC2M, 0b0111 << TIM_CCMR1_OC2M_Pos);
+    MODIFY_REG(TIM8->CCMR2, TIM_CCMR2_OC3M, 0b0111 << TIM_CCMR2_OC3M_Pos);
+    MODIFY_REG(TIM8->CCMR2, TIM_CCMR2_OC4M, 0b0111 << TIM_CCMR2_OC4M_Pos);
 
     // Preload updates
     SET_BIT(TIM8->CCMR1, TIM_CCMR1_OC1PE);
@@ -265,13 +263,14 @@ void tim8_pwm_init(void) {
     WRITE_REG(TIM8->ARR, 1000U - 1U);
 
     // Default duty cycle settings
-    WRITE_REG(TIM8->CCR1, 500U - 1U);
-    WRITE_REG(TIM8->CCR2, 250U - 1U);
-    WRITE_REG(TIM8->CCR3, 750U - 1U);
-    WRITE_REG(TIM8->CCR4, 1000U - 1U);
+    WRITE_REG(TIM8->CCR1, 1000U - 1U);
+    WRITE_REG(TIM8->CCR2, 750U - 1U);
+    WRITE_REG(TIM8->CCR3, 500U - 1U);
+    WRITE_REG(TIM8->CCR4, 250U - 1U);
 
     // Clear Counter
-    WRITE_REG(TIM8->CNT, 65535U);
+    SET_BIT(TIM8->EGR, TIM_EGR_UG);
+    WRITE_REG(TIM8->CNT, 0U);
 
     // Enable Capture/Compare
     SET_BIT(TIM8->CCER, TIM_CCER_CC1E);
@@ -286,7 +285,6 @@ void tim8_pwm_init(void) {
 /* -------------------------------------------------------------------------- */
 /*                                 Interrupts                                 */
 /* -------------------------------------------------------------------------- */
-
 void TIM2_IRQHandler(void) { 
     if (READ_BIT(TIM2->SR, TIM_SR_UIF)) {
         CLEAR_BIT(TIM2->SR, TIM_SR_UIF);

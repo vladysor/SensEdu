@@ -20,7 +20,7 @@ The STM32H747 features three 16-bit ADCs with up to 20 multiplexed channels each
 
 ## Errors
 
-Main ADC error code is `0x20xx`. Find the way to display errors in your Arduino sketch [here]({% link Library/index.md %}#error-handling).
+The main ADC error code prefix is `0x20xx`. Find the way to display errors in your Arduino sketch [here]({% link Library/index.md %}#error-handling).
 
 An overview of possible errors for ADC:
 

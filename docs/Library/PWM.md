@@ -104,8 +104,8 @@ void SensEdu_PWM_SetFrequency(uint32_t freq);
 
 #### Notes
 {: .no_toc}
-* Updates ARR and PSC registers to adjust frequency.
-* CCRx registers on all 4 channels are scaled accordingly to preserve their duty cycle ratios.
+* Updates `ARR` and `PSC` registers to adjust frequency.
+* `CCRx` registers on all 4 channels are scaled accordingly to preserve their duty cycle ratios.
 
 ### SensEdu_PWM_SetDutyCycle
 Sets a new duty cycle for a given PWM channel.
@@ -127,25 +127,88 @@ void SensEdu_PWM_SetDutyCycle(uint8_t arduino_pin_idx, uint8_t duty_cycle);
 
 ### Generate_PWM
 
-does things.
+Demonstrates how to generate continuous PWM signal on x4 outputs with different duty cycles.
 
-1. Include the SensEdu library and declare the PWM pin
-2. ???
-
-{: .NOTE}
-???
+1. Include SensEdu library
+2. Declare PWM pins
+3. Initialize each PWM pin using `SensEdu_PWM_Init()`
+4. Start PWM with `SensEdu_PWM_Start()`
 
 ```c
 #include "SensEdu.h"
 
-uint8_t pwm = D7;
+uint8_t pwm_chs[4] = {D4, D37, D48, D71};
 
 void setup() {
-    
+    SensEdu_PWM_Init(pwm_chs[0], 100000, 25);
+    SensEdu_PWM_Init(pwm_chs[1], 100000, 50);
+    SensEdu_PWM_Init(pwm_chs[2], 100000, 75);
+    SensEdu_PWM_Init(pwm_chs[3], 100000, 100);
+    SensEdu_PWM_Start();
 }
 
 void loop() {
+    // do nothing
+}
+```
 
+Below is the figure of the resulting PWM waveforms for pins **D4 (black)**{: .text-black-000}, and **D37 (blue)**{: .text-blue-000}.
+
+![]({{site.baseurl}}/assets/images/PWM_Test1.png)
+
+### Generate_PWM_Freq_Sweep
+
+This example shows how to generate a sequence of PWM signals with gradually increasing frequencies on one output pin.
+
+1. Follow the same basic configuration as in the [`Generate_PWM`]({% link Library/PWM.md %}#generate_pwm)
+2. Add a custom delay timer as described in [`Blink_Delay`]({% link Library/Timers.md%}#blink_delay). This delay is used to control the duration of each individual frequency.
+3. Configure the parameters:
+  * Starting frequency (`fstart`)
+  * Ending frequency (`fend`)
+  * Number of steps (`steps`)
+  * Duration of each frequency (`step_dur_ms`)
+4. Calculate the frequency increment based on the range `fstart - fend`, and `steps`
+5. Trigger the sequence using an external input, such as a button press or serial input
+6. Iterate through the frequency steps:
+   1. Set the current frequency with `SensEdu_PWM_SetFrequency()`
+   2. Start the PWM with `SensEdu_PWM_Start()`
+   3. Wait for the desired duration using custom delay `SensEdu_TIMER_Delay_us()`
+   4. Stop the PWM with `SensEdu_PWM_Stop()`
+
+```c
+uint32_t freq_increment = (fend-fstart)/(steps-1);
+for (uint32_t i = 0; i < steps; i++) {
+    uint32_t freq = fstart + i * freq_increment;
+    if (i == steps - 1) {
+        freq = fend;
+    }
+    SensEdu_PWM_SetFrequency(freq);
+    SensEdu_PWM_Start();
+    SensEdu_TIMER_Delay_us(1000 * step_dur);
+    SensEdu_PWM_Stop();
+}
+```
+
+To make the example more flexible, it includes a `Serial` input parser, allowing for dynamic inputs in the form `[fstart, fend, steps, step_dur_ms]`, avoiding the need to recompile hardcoded values every time you want to test a different configuration.
+
+Below is an example of the resulting waveform with the input `[100, 5000, 5, 200]`. On the oscilloscope there are 5 distinct frequency gradients, with each frequency held for $$200\text{ms}$$.
+![]({{site.baseurl}}/assets/images/PWM_FreqSweepInput.png)
+
+![]({{site.baseurl}}/assets/images/PWM_FreqSweepTest1.png)
+
+#### Notes
+{: .no_toc}
+* Stopping and restarting the PWM helps with precise timing on selected `step_dur_ms`. In this usecase stopping and starting PWM again is not necessary. However, if small variations in timing are acceptable, you can simplify the implementation by skipping the stop/restart steps. You can use just `SensEdu_PWM_SetFrequency()` and nothing more. The new frequency is updated naturally on the **next update event**. This approach results in cleaner transitions between each frequency.
+
+```c
+uint32_t freq_increment = (fend-fstart)/(steps-1);
+for (uint32_t i = 0; i < steps; i++) {
+    uint32_t freq = fstart + i * freq_increment;
+    if (i == steps - 1) {
+        freq = fend;
+    }
+    SensEdu_PWM_SetFrequency(freq);
+    SensEdu_TIMER_Delay_us(1000 * step_dur);
 }
 ```
 

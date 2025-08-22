@@ -161,7 +161,7 @@ Below is the figure of the resulting PWM waveforms for pins **D4 (black)**{: .te
 This example shows how to generate a sequence of PWM signals with gradually increasing frequencies on one output pin.
 
 1. Follow the same basic configuration as in the [`Generate_PWM`]({% link Library/PWM.md %}#generate_pwm)
-2. Add a custom delay timer as described in [`Blink_Delay`]({% link Library/Timers.md%}#blink_delay). This delay is used to control the duration of each individual frequency.
+2. Add a custom delay timer as described in [`Blink_Delay`]({% link Library/Timers.md%}#blink_delay). This delay is used to control the duration of each individual frequency
 3. Configure the parameters:
   * Starting frequency (`fstart`)
   * Ending frequency (`fend`)
@@ -191,14 +191,14 @@ for (uint32_t i = 0; i < steps; i++) {
 
 To make the example more flexible, it includes a `Serial` input parser, allowing for dynamic inputs in the form `[fstart, fend, steps, step_dur_ms]`, avoiding the need to recompile hardcoded values every time you want to test a different configuration.
 
-Below is an example of the resulting waveform with the input `[100, 5000, 5, 200]`. On the oscilloscope there are 5 distinct frequency gradients, with each frequency held for $$200\text{ms}$$.
+Below is an example of the resulting waveform with an input `[100, 5000, 5, 200]`. On the oscilloscope there are 5 distinct frequency gradients, with each frequency held for $$200\text{ms}$$.
 ![]({{site.baseurl}}/assets/images/PWM_FreqSweepInput.png)
 
 ![]({{site.baseurl}}/assets/images/PWM_FreqSweepTest1.png)
 
 #### Notes
 {: .no_toc}
-* Stopping and restarting the PWM helps with precise timing on selected `step_dur_ms`. In this usecase stopping and starting PWM again is not necessary. However, if small variations in timing are acceptable, you can simplify the implementation by skipping the stop/restart steps. You can use just `SensEdu_PWM_SetFrequency()` and nothing more. The new frequency is updated naturally on the **next update event**. This approach results in cleaner transitions between each frequency.
+* Stopping and restarting the PWM helps with precise timing on selected `step_dur_ms`. However, if small variations in timing are acceptable, you can simplify the implementation by skipping the stop/restart steps. You can use just `SensEdu_PWM_SetFrequency()` and nothing more. The new frequency is updated naturally on the **next update event**. This approach results in cleaner transitions between each frequency.
 
 ```c
 uint32_t freq_increment = (fend-fstart)/(steps-1);
@@ -243,7 +243,7 @@ PWM is implemented using the timer **TIM8**. Refer to the [Arduino GIGA R1 Schem
 | D48         | PK0     | TIM8_CH3      |
 | D71         | PI2     | TIM8_CH4      |
 
-All configuration details for TIM8 can be found in **Chapter 40.3 TIM1/TIM8** of [STM32H747 Reference Manual]. 
+Find all configuration details for TIM8 in **Chapter 40.3 TIM1/TIM8** of [STM32H747 Reference Manual]. 
 
 In this setup, TIM8 is configured in the **upcounting mode** and operates in **PWM Mode 2**, which means the channel remains inactive as long as `TIM8_CNT` < `TIM8_CCRx`. It makes the PWM **active-high**.
 
@@ -254,7 +254,7 @@ Since preloading is enabled, the library generates the update event before start
 
 After configuring the timer, the next step is to route the timer's output signal to the appropriate I/O pin. Detailed instructions could be found in **Chapter 12 GPIO** of [STM32H747 Reference Manual].
 
-GPIO is configured for **highest speed**, and with **no pull-up or pull-down** resistors. To output the timer signal via a GPIO pin, the **alternate function mode** must be selected. There are multiple available functions for each pin, the proper index for TIM8 could be found by consulting the Tables 9 to 19 of [STM32H747 Datasheet]. In this case, for `TIM8_CH1-4` the alternate function index is 3, therefore GPIO is configured with **AF3**.
+GPIO is configured for **highest speed**, and with **no pull-up or pull-down** resistors. To output the timer signal via a GPIO pin, the **alternate function mode** must be selected. There are multiple available functions for each pin, the proper index for TIM8 could be found by consulting the **Tables 9 to 19 in Chapter 5** of [STM32H747 Datasheet]. In this case, for `TIM8_CH1-4` the alternate function index is 3, therefore GPIO is configured with **AF3**.
 
 ![]({{site.baseurl}}/assets/images/PWM_GPIOConfig.png)
 

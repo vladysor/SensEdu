@@ -18,11 +18,16 @@ Timers allow precise event scheduling, such as creating delays or setting sampli
 
 ## Errors
 
-Main timers error code is `0x10xx`. Find the way to display errors in your Arduino sketch [here]({% link Library/index.md %}#error-handling).
+The main timer error code prefix is `0x10xx`. Find the way to display errors in your Arduino sketch [here]({% link Library/index.md %}#error-handling).
 
 An overview of possible errors for timers:
 * `0x1000`: No Errors
 * `0x1001`: Unexpected DAC frequency. Maximum possible is 60MHz, refer to [these calculations]({% link Library/Timers.md %}#frequency-settings) for more details
+* `0x1002`: TIM8 initialization attempt while TIM8 is running. Configuration is possible only for disabled timer
+* `0x1003`: TIM8 Unexpected CCR channel. Possible options are: `CCR1`, `CCR2`, `CCR3` or `CCR4`
+
+An overview of critical errors. They shouldn't happen in normal user case and indicate some problems in library code:
+* `0x10A0`: TIM8 frequency calculations failed
 
 ## Functions
 
@@ -87,8 +92,9 @@ Peripheral timers (ADC/DAC) are hidden, automatically configured and require no 
 
 Timer allocation:
 * **TIM1**: ADC sampling
-* **TIM2**: delays 
-* **TIM4**: DAC sampling 
+* **TIM2**: Delays 
+* **TIM4**: DAC sampling
+* **TIM8**: PWM
 
 {: .WARNING }
 Avoid reusing occupied timers. Refer to [STM32H747 Reference Manual] to find free available timers. Be aware, future updates will assign dedicated timers to each ADC/DAC separately, which may occupy your custom timer.

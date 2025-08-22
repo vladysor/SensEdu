@@ -29,7 +29,7 @@ Each of the methods are useful for different applications.
 
 ## Errors
 
-Main DAC error code is `0x40xx`. Find the way to display errors in your Arduino sketch [here]({% link Library/index.md %}#error-handling).
+The main DAC error code prefix is `0x40xx`. Find the way to display errors in your Arduino sketch [here]({% link Library/index.md %}#error-handling).
 
 An overview of possible errors for DAC:
 

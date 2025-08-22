@@ -307,6 +307,10 @@ Second figure shows measurements with a flat object placed near the board. Here,
 
 Utilizes only one microphone. The example is similar to [Basic_UltraSound]({% link Library/Others.md %}#basic_ultrasound), but uses WiFi as communication medium instead of Serial.
 
+**Step 0**{: .text-blue-000} : Connect an antenna to the Arduino GIGA R1 (provided in the bundle)
+
+<img src="{{site.baseurl}}/assets/images/arduino-antenna-connection.png" alt="drawing" width="507"/>
+
 **Step 1**{: .text-blue-000} : Include SensEdu and WiFi libraries.
 
 ```c

@@ -22,12 +22,14 @@ The main timer error code prefix is `0x10xx`. Find the way to display errors in 
 
 An overview of possible errors for timers:
 * `0x1000`: No Errors
-* `0x1001`: Unexpected DAC frequency. Maximum possible is 60MHz, refer to [these calculations]({% link Library/Timers.md %}#frequency-settings) for more details
-* `0x1002`: TIM8 initialization attempt while TIM8 is running. Configuration is possible only for disabled timer
-* `0x1003`: TIM8 Unexpected CCR channel. Possible options are: `CCR1`, `CCR2`, `CCR3` or `CCR4`
+* `0x1001`: Unexpected delay value. Minimum is 2ns.
+* `0x1002`: Unexpected ADC frequency. Maximum possible is 120MHz, refer to [these calculations]({% link Library/Timers.md %}#frequency-settings) for more details
+* `0x1003`: Unexpected DAC frequency. Maximum possible is 60MHz, refer to [these calculations]({% link Library/Timers.md %}#frequency-settings) for more details
+* `0x1004`: TIM8 initialization attempt while TIM8 is running. Configuration is possible only for disabled timer
+* `0x1005`: TIM8 Unexpected CCR channel. Possible options are: `CCR1`, `CCR2`, `CCR3` or `CCR4`
 
 An overview of critical errors. They shouldn't happen in normal user case and indicate some problems in library code:
-* `0x10A0`: TIM8 frequency calculations failed
+* `0x10A0`: Timer frequency calculations failed
 
 ## Functions
 
@@ -40,7 +42,7 @@ void SensEdu_TIMER_DelayInit();
 
 ### SensEdu_TIMER_Delay_us
 
-Pauses program execution for a specified duration (blocking delay).
+Pauses program execution for a specified duration in microseconds (blocking delay).
 
 ```c
 void SensEdu_TIMER_Delay_us(uint32_t delay_us);
@@ -48,7 +50,25 @@ void SensEdu_TIMER_Delay_us(uint32_t delay_us);
 
 #### Parameters
 {: .no_toc}
-* `delay_us`: Delay duration in microseconds. Maximum: 4,294,967,295 µs.
+* `delay_us`: Delay duration in microseconds. Maximum: $$4,294,967,295 \text{us}$$.
+
+### SensEdu_TIMER_Delay_ns
+
+Pauses program execution for a specified duration in nanoseconds (blocking delay).
+
+```c
+void SensEdu_TIMER_Delay_ns(uint32_t delay_ns);
+```
+
+#### Parameters
+{: .no_toc}
+* `delay_ns`: Delay duration in nanoseconds. Maximum: $$4,294,967,295 \text{ns}$$.
+
+#### Notes
+{: .no_toc}
+* The lowest possible timer resolution on STM32H747 MCU is ~$$4.17\text{ns}$$. Calculated this way: $$\text{tick} = 1/240\text{MHz} * 10^9 \approx4.17\text{ns}$$. Then, possible delays are multiples of the tick, approximately: $$4\text{ns}$$, $$8\text{ns}$$, $$13\text{ns}$$, $$17\text{ns}$$, and so on.
+* Delays shorter than $$250\text{ns}$$ are generally not possible, due to set frequencies being close to the system clock frequency of the MCU. These delays are overpowered by the software overhead, due to the software execution itself taking around $$60-120$$ CPU cycles. This corresponds to an additional delay of ~$$125-250\text{ns}$$ on a $$480\text{MHz}$$ core.
+* For `delay_ns` $$\geq$$ $$1\text{ms}$$, the function internally switches to `SensEdu_TIMER_Delay_us()`, to avoid potential 32-bit math overflow for `NS_TO_TICKS(ns)` macro.
 
 ## Examples
 

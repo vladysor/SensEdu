@@ -47,11 +47,11 @@ void SensEdu_TIMER_Delay_ns(uint32_t delay_ns) {
         return;
     }
     if (delay_ns > 1000000UL) {
-        // avoid ticks macro overflow fo delays >= 1ms
+        // avoid ticks macro overflow fo delays > 1ms
         SensEdu_TIMER_Delay_us(delay_ns/1000);
         return;
     }
-    
+
     // CPU overhead compensation
     if (delay_ns > DELAY_CPU_OVERHEAD_NS) {
         delay_ns -= DELAY_CPU_OVERHEAD_NS;

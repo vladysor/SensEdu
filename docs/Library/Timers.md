@@ -22,7 +22,7 @@ The main timer error code prefix is `0x10xx`. Find the way to display errors in 
 
 An overview of possible errors for timers:
 * `0x1000`: No Errors
-* `0x1001`: Unexpected delay value. Minimum is 2ns.
+* `0x1001`: Unexpected delay value. Minimum possible is 1ns
 * `0x1002`: Unexpected ADC frequency. Maximum possible is 120MHz, refer to [these calculations]({% link Library/Timers.md %}#frequency-settings) for more details
 * `0x1003`: Unexpected DAC frequency. Maximum possible is 60MHz, refer to [these calculations]({% link Library/Timers.md %}#frequency-settings) for more details
 * `0x1004`: TIM8 initialization attempt while TIM8 is running. Configuration is possible only for disabled timer
@@ -52,9 +52,16 @@ void SensEdu_TIMER_Delay_us(uint32_t delay_us);
 {: .no_toc}
 * `delay_us`: Delay duration in microseconds. Maximum: $$4,294,967,295 \text{us}$$.
 
+#### Notes
+{: .no_toc}
+* For `delay_us` $$\leq$$ $$1000\text{us}$$, the function internally switches to `SensEdu_TIMER_Delay_ns()`, to offer more precise timings with software overhead compensation.
+
 ### SensEdu_TIMER_Delay_ns
 
 Pauses program execution for a specified duration in nanoseconds (blocking delay).
+
+{: .WARNING}
+This is an experimental function. Read the notes carefully.
 
 ```c
 void SensEdu_TIMER_Delay_ns(uint32_t delay_ns);
@@ -66,9 +73,10 @@ void SensEdu_TIMER_Delay_ns(uint32_t delay_ns);
 
 #### Notes
 {: .no_toc}
-* The lowest possible timer resolution on STM32H747 MCU is ~$$4.17\text{ns}$$. Calculated this way: $$\text{tick} = 1/240\text{MHz} * 10^9 \approx4.17\text{ns}$$. Then, possible delays are multiples of the tick, approximately: $$4\text{ns}$$, $$8\text{ns}$$, $$13\text{ns}$$, $$17\text{ns}$$, and so on.
-* Delays shorter than $$250\text{ns}$$ are generally not possible, due to set frequencies being close to the system clock frequency of the MCU. These delays are overpowered by the software overhead, due to the software execution itself taking around $$60-120$$ CPU cycles. This corresponds to an additional delay of ~$$125-250\text{ns}$$ on a $$480\text{MHz}$$ core.
-* For `delay_ns` $$\geq$$ $$1\text{ms}$$, the function internally switches to `SensEdu_TIMER_Delay_us()`, to avoid potential 32-bit math overflow for `NS_TO_TICKS(ns)` macro.
+* For `delay_ns` $$\gt$$ $$1000\text{us}$$, the function internally switches to `SensEdu_TIMER_Delay_us()` to avoid potential 32-bit overflow in the `NS_TO_TICKS(ns)` macro.
+* The lowest achievable timer resolution on STM32H747 MCU is ~$$4.17\text{ns}$$, calculated as: $$\text{tick} = 1/240\text{MHz} \times 10^9 \approx4.17\text{ns}$$. Delays are therefore multiples of this tick, approximately: $$4\text{ns}$$, $$8\text{ns}$$, $$13\text{ns}$$, $$17\text{ns}$$, etc.
+* Delays shorter than $$250\text{ns}$$ are generally not practical, due to set frequencies being close to the system clock frequency of the MCU. These delays become overpowered by the software overhead. Execution of the function itself takes around $$60-120$$ CPU cycles, corresponding to ~$$125-250\text{ns}$$ on a $$480\text{MHz}$$ core.
+* To account for software overhead, a hardcoded compensation of $$550\text{ns}$$ is applied. Additionally, any requested delays below this threshold are automatically raised to $$550\text{ns}$$. The reasons for this exact number are explained in the [compensation section]({% link Library/Timers.md %}#software-overhead-compensation-in-nanosecond-delays).
 
 ## Examples
 
@@ -144,5 +152,35 @@ Prescaler is set to its minimum value to achieve the finest frequency adjustment
 
 {: .NOTE }
 When a user specifies a frequency for a DAC or ADC, the target value is automatically rounded to the nearest achievable frequency dictated by the timer's step. The lower target frequency, the higher the achievable precision.
+
+### Software Overhead Compensation in Nanosecond Delays
+
+Software execution adds an unavoidable overhead, which becomes noticeable for very small delays in the range of hundreds of nanoseconds. To measure this, a simple test was performed:
+
+```c
+SensEdu_TIMER_Delay_ns(1);
+digitalWrite(pin, HIGH);
+SensEdu_TIMER_Delay_ns(1);
+digitalWrite(pin, LOW);
+```
+
+{: .WARNING}
+This test is not fully precise, since `digitalWrite()` itself introduces an additional delay. However, because digital I/O is a typical use case for these delays, the results are considered representative.
+
+The following figure shows the resulting waveform for a set delay of $$1\text{ns}$$, followed by a summary table with measurement results for various delays.
+
+![]({{site.baseurl}}/assets/images/timer_soft_overhead_1ns.png)
+
+| Set Delay | Actual Delay | Software Overhead |
+|:----------|:-------------|:------------------|
+| 1ns       | 546ns        | 545ns             |
+| 250ns     | 788ns        | 538ns             |
+| 1000ns    | 1537ns       | 537ns             |
+| 5000ns    | 5522ns       | 522ns             |
+
+Based on these results, the rounded average execution overhead is estimated as $$550\text{ns}$$. This value is defined in `timer.c` as the macro `DELAY_CPU_OVERHEAD_NS` and is automatically subtracted from the requested nanosecond delay. The figure below shows a requested delay of $$5000\text{ns}$$: **without compensation (black)**{: .text-black-000} and **with compensation (blue)**{: .text-blue-000}. While compensation is applied, the delay averages ~$$5004\text{ns}$$.
+
+![]({{site.baseurl}}/assets/images/timer_soft_overhead_compensated.png)
+
 
 [STM32H747 Reference Manual]: https://www.st.com/resource/en/reference_manual/rm0399-stm32h745755-and-stm32h747757-advanced-armbased-32bit-mcus-stmicroelectronics.pdf

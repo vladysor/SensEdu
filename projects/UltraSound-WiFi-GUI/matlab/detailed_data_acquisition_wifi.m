@@ -16,9 +16,10 @@ ENABLE_LIVE_PLOTS = true;
 
 %% Arduino Setup + Config
 % Serial port configuration 
-ARDUINO_PORT = 'COM18';
-ARDUINO_BAUDRATE = 115200;
-arduino = serialport(ARDUINO_PORT, ARDUINO_BAUDRATE); % select port and baudrate 
+ARDUINO_IP = "192.168.56.128"; % match to Arduino IP
+ARDUINO_PORT = 80; % match to port of Arduino server
+
+arduino = tcpclient(ARDUINO_IP, ARDUINO_PORT, "Timeout",30,"ConnectTimeout",30); % connect to Arduino
 
 %% Arrays
 dist_matrix = zeros(MIC_NUM, ITERATIONS); % distance matrix
@@ -63,7 +64,7 @@ save(file_name, "dist_matrix", "time_axis");
 fprintf("Data acquisition completed in: %fsec\n", acquisition_time);
 
 % close serial connection
-arduino = [];
+%arduino = [];
 
 %% Plotting 1
 figure
@@ -156,35 +157,13 @@ function dist_vector = read_distance_data(arduino, mic_num)
 end
 
 function data = read_16bit_data(arduino, data_length)
-    chunk_size = 32; % in bytes
-    data_length_byte = data_length*2; % multiplied by sizeof(type)
-
-    raw_data_8bit = zeros(data_length_byte/chunk_size, chunk_size);
-    raw_data_16bit = zeros(data_length_byte/chunk_size, chunk_size/2);
-    
-    for i = 1:(data_length_byte/chunk_size)
-        raw_data_8bit(i, :) = read(arduino, chunk_size, 'uint8');
-        raw_data_16bit(i, :) = typecast_uint8_uint16(raw_data_8bit(i, :));
-    end
-    
-    % rearrange by mic
-    data = reshape(raw_data_16bit', 1, []);
+    raw_data = read(arduino, data_length * 2, 'uint8');
+    data = typecast_uint8_uint16(raw_data);
 end
 
 function data = read_float_data(arduino, data_length)
-    chunk_size = 32; % in bytes
-    data_length_byte = data_length*4; % multiplied by sizeof(type)
-
-    raw_data_8bit = zeros(data_length_byte/chunk_size, chunk_size);
-    raw_data_float = zeros(data_length_byte/chunk_size, chunk_size/4);
-    
-    for i = 1:(data_length_byte/chunk_size)
-        raw_data_8bit(i, :) = read(arduino, chunk_size, 'uint8');
-        raw_data_float(i, :) = typecast_uint8_float(raw_data_8bit(i, :));
-    end
-    
-    % rearrange by mic
-    data = reshape(raw_data_float', 1, []);
+    raw_data = read(arduino, data_length * 4, 'uint8');
+    data = typecast_uint8_float(raw_data);
 end
 
 function casted_data = typecast_uint8_uint16(data)

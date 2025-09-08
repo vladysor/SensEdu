@@ -64,7 +64,7 @@ typedef struct {
 #### Fields
 {: .no_toc}
 * `dac_channel`: Selects the DAC channel (`DAC_CH1` or `DAC_CH2`)
-* `sampling_freq`: Specified DAC sampling frequency. Maximum value is around 15 MHz
+* `sampling_freq`: Specified DAC sampling frequency. Maximum value is around 15MHz
 * `mem_address`: DMA buffer address in memory (first element of the array)
 * `mem_size`: DMA buffer size
 * `wave_mode`: 

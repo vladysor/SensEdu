@@ -584,8 +584,7 @@ The ADC clock is routed from the PLL2 clock and set to $$25\text{MHz}$$ for each
 
 $$T_{CONV} = (2.5 \text{ cycles} + 8.5 \text{ cycles}) * \frac{1}{f_{\text{adc_ker_ck}}} = 11 \text{ cycles} * \frac{1}{25\text{MHz}} = 440\text{ns}$$
 
-SensEdu is configured to x2 oversampling (basically, averaging), so we require around $$880\text{ns}$$ per one ADC conversion, which theoretically gives us a maximum $$1136\text{kS/sec}$$ sampling rate. However, in reality, this rate is expected to be lower due to various additional delays. Based on our practical testing of the ADC sampling rate, we have concluded that the maximum achievable sampling rate is $$550\text{kS/sec}$$. Any attempt to increase this rate further results in a decrease in the actual sampling rate.
-
+SensEdu is configured to x2 oversampling (basically, averaging), so we require around $$880\text{ns}$$ per one ADC conversion, which theoretically gives us a maximum $$1136\text{kS/sec}$$ sampling rate. Based on the practical tests of the ADC sampling rate, the theoretical maximum of the sampling rate can be achieved with a negligible error that is the result of various additional delays. Therefore, the practical limit of the ADC sampling rate is set to $$1000\text{kS/sec}$$ which corresponds to a sampling frequency of $$1\text{MHz}$$. Any attempt to increase this rate further results in a decrease in the actual sampling rate of the module. 
 ### Initialization
 
 General ADC configuration:

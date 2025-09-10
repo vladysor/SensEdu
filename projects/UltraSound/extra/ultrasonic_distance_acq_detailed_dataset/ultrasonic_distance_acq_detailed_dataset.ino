@@ -7,6 +7,12 @@
 uint32_t lib_error = 0;
 uint8_t error_led = D86;
 
+#define AIR_SPEED               343
+#define AIR_SPEED_MM_S          (AIR_SPEED * 1000UL)
+#define AIR_SPEED_UM_S          (AIR_SPEED * 1000000UL)
+#define HALF_AIR_SPEED_MM_S     (AIR_SPEED_MM_S / 2U)
+#define HALF_AIR_SPEED_UM_S     (AIR_SPEED_UM_S / 2U)
+
 /* -------------------------------------------------------------------------- */
 /*                                  Settings                                  */
 /* -------------------------------------------------------------------------- */
@@ -167,12 +173,12 @@ void loop() {
     for(uint8_t i = 0; i < adc1_mic_num; i++) {
         get_channel_data(adc1_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc1_mic_num, i);
         process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
-        distance[i] = calculate_distance(main_obj_ptr->processing_buffer);
+        distance[i] = calculate_distance(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, ACTUAL_SAMPLING_RATE);
     }
     for(uint8_t i = 0; i < adc2_mic_num; i++) {
         get_channel_data(adc2_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc2_mic_num, i);
         process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
-        distance[adc1_mic_num + i] = calculate_distance(main_obj_ptr->processing_buffer);
+        distance[adc1_mic_num + i] = calculate_distance(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, ACTUAL_SAMPLING_RATE);
     }
 
     // Sending the distance measurements

@@ -8,9 +8,9 @@ void get_channel_data(uint16_t* adc_array, uint16_t* ch_buf, const uint16_t ch_b
     }
 }
 
-/*------------------------------------------------------------------*/
-/*                     CROSS-CORRELATION FUNCTION                   */
-/*------------------------------------------------------------------*/
+/* -------------------------------------------------------------------------- */
+/*                         CROSS-CORRELATION FUNCTION                         */
+/* -------------------------------------------------------------------------- */
 void custom_xcorr(float* xcorr_buf, const uint16_t* dac_wave, uint32_t adc_data_length) {
     // delay loop
     for (int32_t m = 0; m < adc_data_length; m++) {
@@ -27,9 +27,9 @@ void custom_xcorr(float* xcorr_buf, const uint16_t* dac_wave, uint32_t adc_data_
     }
 }
 
-/*------------------------------------------------------------------*/
-/*                     BANDPASS FILTERING FUNCTION                  */
-/*------------------------------------------------------------------*/
+/* -------------------------------------------------------------------------- */
+/*                         BANDPASS FILTERING FUNCTION                        */
+/* -------------------------------------------------------------------------- */
 void filter_32kHz_wave(float* rescaled_adc_wave, uint16_t adc_data_length) {
     static float32_t output_signal[STORE_BUF_SIZE];
     // initialize this temporal buffer
@@ -46,9 +46,9 @@ void filter_32kHz_wave(float* rescaled_adc_wave, uint16_t adc_data_length) {
     memcpy(rescaled_adc_wave, output_signal, adc_data_length * sizeof(float));
 }
 
-/*------------------------------------------------------------------*/
-/*                     RESCALING FUNCTION                           */
-/*------------------------------------------------------------------*/
+/* -------------------------------------------------------------------------- */
+/*                             RESCALING FUNCTION                             */
+/* -------------------------------------------------------------------------- */
 void rescale_adc_wave(float* rescaled_adc_wave, uint16_t* adc_wave, size_t adc_data_length) {
     // 0:65535 -> -1:1
     for(uint16_t i = 0; i < adc_data_length; i++) {
@@ -65,30 +65,21 @@ void remove_coupling(float* adc_wave, const uint16_t banned_sample_num) {
     }
 }
 
-/*------------------------------------------------------------------*/
-/*                     CALCULATE DISTANCES                          */
-/*------------------------------------------------------------------*/
-float calculate_distance(float *xcorr_buf) {
-    uint32_t peak_index = 0, pocni = 0, cnt = 0;
-	float biggest = 0.0f;
-    uint16_t sr = ACTUAL_SAMPLING_RATE/1000; // kS/sec  sample rate
-    uint32_t distance = 0;
-    while(cnt!=STORE_BUF_SIZE) {
-        for (uint32_t i = pocni; i < STORE_BUF_SIZE; i++) {
-            if (xcorr_buf[i] > biggest) {
-                biggest = xcorr_buf[i];
-                peak_index = i;
-            }
+/* -------------------------------------------------------------------------- */
+/*                             CALCULATE DISTANCES                            */
+/* -------------------------------------------------------------------------- */
+float calculate_distance(float* echo, uint16_t echo_length, uint32_t sampling_rate) {
+    uint16_t peak_index = 0u;
+    float max_value = 0.0f;
+    for (uint16_t i = 0u; i < echo_length; i++) {
+        if (echo[i] > max_value) {
+            max_value = echo[i];
+            peak_index = i;
         }
-        
-        // (lag_samples * sample_time) * air_speed / 2
-        // peak index is in kilosamples. This math manover makes the samples come in micrometers 
-        distance = ((peak_index * 1000 * air_speed) / sr) >> 1; // in micrometers
-        if (abs((distance / 1000000) - BAN_DISTANCE/100) > 0.0000001) {
-            return distance;
-        }
-        pocni = peak_index + 10; // offset it so it can get a real size
-        cnt++;
     }
-    return distance;
+    
+    // (lag_samples * sample_time) * air_speed / 2
+    float dist_um = (float)peak_index * HALF_AIR_SPEED_UM_S;
+    dist_um = (dist_um / sampling_rate);
+    return dist_um;
 }

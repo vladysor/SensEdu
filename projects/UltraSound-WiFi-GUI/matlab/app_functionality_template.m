@@ -1,7 +1,5 @@
-%% detailed_data_acquisition.m
-% triggers ultrasonic recording
-% receives the data
-% plots distances along with processing steps
+%% demo file to see what needs to be implemented via interface
+%% see actual code at matlab -> apps -> design app -> open -> WiFi_GUI.mlapp
 clear;
 close all;
 addpath("plot scripts\");
@@ -19,7 +17,7 @@ ENABLE_LIVE_PLOTS = true;
 ARDUINO_IP = "192.168.56.128"; % match to Arduino IP
 ARDUINO_PORT = 80; % match to port of Arduino server
 
-arduino = tcpclient(ARDUINO_IP, ARDUINO_PORT, "Timeout",30,"ConnectTimeout",30); % connect to Arduino
+arduino = tcpclient(ARDUINO_IP, ARDUINO_PORT, "Timeout",30, "ConnectTimeout",30); % connect to Arduino
 
 %% Arrays
 dist_matrix = zeros(MIC_NUM, ITERATIONS); % distance matrix

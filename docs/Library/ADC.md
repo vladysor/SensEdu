@@ -73,7 +73,7 @@ typedef struct {
   * `SENSEDU_ADC_MODE_ONE_SHOT`: Single conversion on demand
   * `SENSEDU_ADC_MODE_CONT`: Continuous conversions
   * `SENSEDU_ADC_MODE_CONT_TIM_TRIGGERED`: Timer-driven continuous conversions, which enables stable sampling frequency
-* `sampling_freq`: Specified sampling frequency for `SENSEDU_ADC_MODE_CONT_TIM_TRIGGERED` mode. Up to ~500kS/sec
+* `sampling_freq`: Specified sampling frequency for `SENSEDU_ADC_MODE_CONT_TIM_TRIGGERED` mode. Up to 1MS/sec
 * `dma_mode`: Specifies if ADC values are manually polled with CPU or automatically transferred into memory with DMA:
   * `SENSEDU_ADC_DMA_CONNECT`: Attach DMA
   * `SENSEDU_ADC_DMA_DISCONNECT`: CPU polling

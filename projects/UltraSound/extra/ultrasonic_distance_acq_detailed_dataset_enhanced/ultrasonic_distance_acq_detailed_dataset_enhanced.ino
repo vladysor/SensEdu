@@ -200,17 +200,17 @@ void loop() {
     static uint32_t distance[adc1_mic_num + adc2_mic_num + adc3_mic_num];
     for(uint8_t i = 0; i < adc1_mic_num; i++) {
         get_channel_data(adc1_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc1_mic_num, i);
-        process_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
+        process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
         distance[i] = calculate_distance(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, ACTUAL_SAMPLING_RATE);
     }
     for(uint8_t i = 0; i < adc2_mic_num; i++) {
         get_channel_data(adc2_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc2_mic_num, i);
-        process_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
+        process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
         distance[adc1_mic_num + i] = calculate_distance(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, ACTUAL_SAMPLING_RATE);
     }
     for(uint8_t i = 0; i < adc3_mic_num; i++) {
         get_channel_data(adc3_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc3_mic_num, i);
-        process_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
+        process_and_transmit_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag, IS_TRANSMIT_DETAILED_DATA);
         distance[adc1_mic_num + adc2_mic_num + i] = calculate_distance(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, ACTUAL_SAMPLING_RATE);
     }
 
@@ -226,8 +226,12 @@ void loop() {
     }
 }
 
-void process_data(float* buf, const uint16_t buf_size, uint16_t* ch_array, const uint16_t ch_array_size, uint8_t ban_flag, uint8_t is_detailed_transmission) {
 
+void process_and_transmit_data(float* buf, const uint16_t buf_size, uint16_t* ch_array, const uint16_t ch_array_size, uint8_t ban_flag, uint8_t is_detailed_transmission) {
+
+    /* -------------------------------- RAW DATA -------------------------------- */
+    if (is_detailed_transmission)
+        transfer_serial_data(ch_array, ch_array_size, 32);
     
     /* --------------------- RESCALED, FILTERED, NO COUPLED --------------------- */
     // Rescale from [0, (2^16-1)] to [-1, 1] and filter around 32 kHz
@@ -237,9 +241,28 @@ void process_data(float* buf, const uint16_t buf_size, uint16_t* ch_array, const
     if (ban_flag == 1) {
         remove_coupling(buf, c_banned_sample_num);
     } 
+    if (is_detailed_transmission)
+        transfer_serial_data_float(buf, buf_size, 32);
 
     /* ---------------------------------- XCORR --------------------------------- */
 	custom_xcorr(buf, dac_wave, buf_size);
+    if (is_detailed_transmission)
+	    transfer_serial_data_float(buf, buf_size, 32);
+    
+}
+
+void transfer_serial_data(uint16_t* data, const uint16_t data_length, const uint16_t chunk_size_byte) {
+    for (uint16_t i = 0; i < (data_length*2); i += chunk_size_byte) {
+        uint16_t transfer_size = ((data_length*2) - i < chunk_size_byte) ? (data_length*2 - i) : chunk_size_byte;
+        Serial.write((const uint8_t *) data + i, transfer_size);
+    }
+}
+
+void transfer_serial_data_float(float* data, const uint16_t data_length, const uint16_t chunk_size_byte) {
+    for (uint16_t i = 0; i < (data_length*4); i += chunk_size_byte) {
+        uint16_t transfer_size = ((data_length*4) - i < chunk_size_byte) ? (data_length*4 - i) : chunk_size_byte;
+        Serial.write((const uint8_t *) data + i, transfer_size);
+    }
 }
 
 void handle_error() {

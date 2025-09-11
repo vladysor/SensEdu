@@ -4,7 +4,7 @@ clear;
 close all;
 addpath("plot scripts\", "kf algorithm\");
 %% Data Acquisition parameters
-ITERATIONS = 80; 
+ITERATIONS = 2000; 
 MIC_NUM = 8;
 mic_name = {"MIC 1", "MIC 2","MIC 3", "MIC 4", "MIC 8", "MIC 6", "MIC 5", "MIC 7"};
 DATA_LENGTH = 32 * 32;
@@ -18,7 +18,7 @@ ARDUINO_BAUDRATE = 115200;
 arduino = serialport(ARDUINO_PORT, ARDUINO_BAUDRATE); % select port and baudrate 
 
 %% Readings Loop
-pause(5);
+pause(1);
 tic;
 for it = 1:ITERATIONS
     % Start the acquisition

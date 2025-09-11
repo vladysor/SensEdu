@@ -11,8 +11,8 @@ uint8_t error_led = D86;
 /* -------------------------------------------------------------------------- */
 /*                                  Settings                                  */
 /* -------------------------------------------------------------------------- */
-#define WIFI_SSID   "Holohouse"
-#define WIFI_PASS   "FubuKing2011"
+#define WIFI_SSID   "TestWiFi"
+#define WIFI_PASS   "TestWiFi"
 #define WIFI_PORT   80
 
 #define IS_TRANSMIT_DETAILED_DATA   true    // activate full raw, filtered, xcorr data transmission
@@ -82,7 +82,7 @@ WiFiServer server(WIFI_PORT);
 const uint16_t air_speed = 343; // m/s
 
 // e.g. 25cm ban means 0.25*2/343 time ban, then multiply by sample rate
-const uint32_t c_banned_sample_num = ((BAN_DISTANCE*2*ACTUAL_SAMPLING_RATE)/air_speed)/100; 
+const uint32_t c_banned_sample_num = ((BAN_DISTANCE*2*ACTUAL_SAMPLING_RATE)/air_speed)/100;
 
 /* -------------------------------------------------------------------------- */
 /*                              Global Structure                              */
@@ -118,10 +118,10 @@ void setup() {
 
     check_lib_errors();
 
-    // attempt connection to WiFi network
     while (status != WL_CONNECTED) {
         Serial.print("Attempting to connect to SSID: ");
         Serial.println(WIFI_SSID);
+
         // connect to WPA/WPA2 network (change this if youre using open / WEP network)
         status = WiFi.begin(WIFI_SSID, WIFI_PASS);
 
@@ -129,7 +129,6 @@ void setup() {
         delay(10000);
     }
     server.begin();
-    // connection established; print out the status:
     print_wifi_status();
 }
 

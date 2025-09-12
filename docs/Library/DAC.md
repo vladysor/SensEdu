@@ -16,8 +16,8 @@ A DAC (Digital-to-Analog Converter) converts a digital signal into an analog wav
 {:toc}
 
 The STM32H747 features one DAC module with two available channels:
-* ***Central Speaker***: connected to the first channel (channel 1) on `DAC0` pin 
-* ***Bottom Speaker*** connected to the second channel (channel 2) on `DAC1` pin
+* ***Central Speaker***: connected to the first channel (`DAC_CH1`) on `DAC0` pin 
+* ***Bottom Speaker*** connected to the second channel (`DAC_CH2`) on `DAC1` pin
 
 To specify the data to be sent, a lookup table (LUT) is used. There are 3 available modes in which a waveform can be sent to the peripheral: 
 
@@ -25,7 +25,7 @@ To specify the data to be sent, a lookup table (LUT) is used. There are 3 availa
 2. *burst mode* - sending LUT values specified number of cycles
 3. *single mode* - sending LUT values once (single burst mode)
 
-Each of the methods are useful for different applications.
+Each of the methods is useful for different applications.
 
 ## Errors
 
@@ -154,15 +154,15 @@ Examples are organized incrementally. Each builds on the previous one by introdu
 
 If you want to see complete examples, visit `\examples\` directory or open them via Arduino IDE by navigating to `File → Examples → SensEdu`.
 
-Each example uses a LUT with specified (12-bit) values and size. An example of defining a sine wave of 64 samples is shown in the following code snippet
+Each example uses a LUT with specified (12-bit) values and size. An example of defining a sine wave of 64 samples is shown in the following code snippet:
 
 ```c
 const SENSEDU_DAC_BUFFER(buffer_name, buffer_size) = {...};
 ```
-where the first parameter of `SENSEDU_DAC_BUFFER` is the user-defined ***name*** to be used in the program code while the second parameter is the ***size*** of the LUT. 
+The first parameter of `SENSEDU_DAC_BUFFER` is the user-defined ***name*** to be used in the program code while the second parameter is the ***size*** of the LUT. 
 
-{: .NOTE}
-User can specify LUT size to be any positive integer. However, the real size of the DAC buffer has to be an integer divisible by integers raised by power of 2. See more details in [MPU Configuration]({% link Library/DAC.md %}#mpu-configuration) section.
+{: .WARNING}
+Always use `SENSEDU_DAC_BUFFER` macro to define arrays/LUTs for the DAC. This macro automatically handles all buffer requirements for cache coherence, regardless of the selected size. For details, visit the [MPU Configuration]({% link Library/DAC.md %}#mpu-configuration) section.
 
 ### Send_DAC_Single_Sine
 

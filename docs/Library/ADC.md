@@ -38,7 +38,7 @@ An overview of possible errors for ADC:
 An overview of critical errors. They shouldn't happen in normal user case and indicate some problems in library code:
 
 * `0x20A0`: PLL configuration failed
-* `0x20A1`: Internal logic for channel selectrion failed
+* `0x20A1`: Internal logic for channel selection failed
 * `0x20A1`: Internal logic for setting sample time failed
 * `0x20A2`: Operation mode selection accepted unexpected value. Should never happen, since all possible values of type `SENSEDU_ADC_CONVMODE` must be handled internally
 * `0x20A3`: Data management mode selection accepted unexpected value. Should never happen, since all possible values of type `SENSEDU_ADC_DMA` must be handled internally
@@ -272,6 +272,7 @@ void SensEdu_ADC_ShortA4toA9(void);
 
 
 ## Examples
+
 Examples are organized incrementally. Each builds on the previous one by introducing only new features or modifications. Refer to earlier examples for core functionality details.
 {: .fw-500}
 
@@ -423,23 +424,19 @@ SensEdu_ADC_Settings adc_settings = {
 
 Continuously reads ADC conversions using DMA for a single analog pin, allowing efficient data transfer without CPU intervention.
 
-1. Follow base configuration from the [`Read_ADC_1CH`]({% link Library/ADC.md %}#read_adc_1ch) example
-2. Create an array to store ADC results. The array's size (in bytes) must be a multiple of the STM32 cache line size (32 bytes for STM32H747). For a `uint16_t` array, this means the number of elements should be a multiple of 16 (each element is 2 bytes). For example, sizes like 16, 32, 64, etc.
-3. Align the array to the cache line using `__attribute__((aligned(__SCB_DCACHE_LINE_SIZE)))`
-4. In `SensEdu_ADC_Settings`, set `.dma_mode` to `SENSEDU_ADC_DMA_CONNECT`
-5. Assign `.mem_address` to the array's first element address and `.mem_size` to its length
-6. After calling `SensEdu_ADC_Start()`, the ADC fills the buffer with conversions and automatically stops, setting the `dma_complete` flag
-7. Check `dma_complete` using `SensEdu_ADC_GetTransferStatus()`. When `true`, read the buffer and perform operations (e.g., print values, compute something)
-8. Call `SensEdu_ADC_Start()` again to trigger a new DMA transfer
-
-{: .WARNING}
-In future releases cache alignment will be automated, allowing arbitrary buffer sizes with a command like `SENSEDU_ADC_BUFFER(memory4adc, memory4adc_size);`. You can contribute to this feature [here](https://github.com/ShiegeChan/SensEdu/issues/10).
+1. Follow the base configuration from the [`Read_ADC_1CH`]({% link Library/ADC.md %}#read_adc_1ch) example
+2. Declare ADC Buffer with a macro `SENSEDU_ADC_BUFFER` to store the data. It takes two parameters: the user-defined ***name*** to be used in the code and the buffer ***size*** (number of elements)
+3. In `SensEdu_ADC_Settings`, set `.dma_mode` to `SENSEDU_ADC_DMA_CONNECT`
+4. Assign `.mem_address` to the buffer's first element address and `.mem_size` to its length
+5. After calling `SensEdu_ADC_Start()`, the ADC fills the buffer with conversions and automatically stops, setting the `dma_complete` flag
+6. Check `dma_complete` using `SensEdu_ADC_GetTransferStatus()`. When `true`, read the buffer and perform operations (e.g., print values, compute something)
+7. Call `SensEdu_ADC_Start()` again to trigger the next ADC-DMA sequence
 
 ```c
 #include "SensEdu.h"
 
 const uint16_t memory4adc_size = 128;
-__attribute__((aligned(__SCB_DCACHE_LINE_SIZE))) uint16_t memory4adc[memory4adc_size];
+SENSEDU_ADC_BUFFER(memory4adc, memory4adc_size);
 
 ADC_TypeDef* adc = ADC1;
 const uint8_t adc_pin_num = 1;
@@ -485,7 +482,9 @@ void loop() {
 {: .no_toc}
 * `SensEdu_ADC_Start()` resets the `dma_complete` flag automatically.
 * Optimize your code to use DMA capability to perform memory transfers in the background. For example, start a new measurement in the middle of calculations, when the whole old dataset is not needed anymore.
-* Cache line alignment and cache invalidation are necessary to ensure cache coherence and prevent data corruption. When data is transferred to a cached memory chunk, the CPU may read outdated data from the cache. To avoid this issue, we need to invalidate the affected memory. Invalidation operation is performed for the entire cache line, which is 32 bytes long for the STM32H747.
+
+{: .WARNING}
+Always use `SENSEDU_ADC_BUFFER` macro to define arrays for ADC in DMA mode. This macro automatically handles all buffer requirements for cache coherence, regardless of the selected size. For details, visit the [Cache Coherence]({% link Library/ADC.md %}#cache-coherence) section.
 
 
 ### Read_ADC_3CH_DMA
@@ -494,7 +493,7 @@ Continuously reads ADC conversions using DMA multiple selected analog pins, allo
 
 1. Follow the DMA configuration from the [`Read_ADC_1CH_DMA`]({% link Library/ADC.md %}#read_adc_1ch_dma) example
 2. Expand pin array to include all desired channels. Update array size to match channel count
-3. Expand the ADC DMA buffer accordingly to include data for all channels. Ensure that the entire buffer size is still a multiple of the STM32 cache line size (32 bytes for STM32H747)
+3. Expand the ADC DMA buffer accordingly to include data for all channels
 4. Data is organized in a sequence, following the order defined in pin array (e.g., A0 → A1 → A2 → A0 → A1 → ...)
 
 
@@ -504,7 +503,7 @@ const uint8_t adc_pin_num = 3;
 uint8_t adc_pins[adc_pin_num] = {A0, A1, A2}; 
 
 const uint16_t memory4adc_size = 64 * adc_pin_num;
-__attribute__((aligned(__SCB_DCACHE_LINE_SIZE))) uint16_t memory4adc[memory4adc_size];
+SENSEDU_ADC_BUFFER(memory4adc, memory4adc_size);
 ...
 void loop() {
     // do something else when transfer is not yet completed
@@ -566,6 +565,14 @@ Each ADC occupies one DMA stream:
 {: .WARNING }
 Avoid reusing occupied DMA streams. Refer to [STM32H747 Reference Manual] to find free available streams.
 
+### Reading ADC Data
+
+The STM32H7 microcontroller is equipped with three ADC modules, each capable of accessing multiple channels (refer to the ADC mapping [table] above). Reading the ADC values from a single channel is straightforward, as the data is stored consecutively in an array. 
+
+However, when reading data from multiple channels within a single ADC module, users must use different approach. The data for each channel is interleaved in the array, meaning that the data for each channel is stored one after the other, rather than all data from first channel followed by all data from second channel, and so forth. This structure is illustrated clearly in the following figure giving an example of using two channels with one ADC module. 
+
+<img src="{{site.baseurl}}/assets/images/ADC_Data_Flow.png" alt="drawing"/>
+{: .text-center}
 
 ### Conversion Time
 
@@ -584,7 +591,8 @@ The ADC clock is routed from the PLL2 clock and set to $$25\text{MHz}$$ for each
 
 $$T_{CONV} = (2.5 \text{ cycles} + 8.5 \text{ cycles}) * \frac{1}{f_{\text{adc_ker_ck}}} = 11 \text{ cycles} * \frac{1}{25\text{MHz}} = 440\text{ns}$$
 
-SensEdu is configured to x2 oversampling (basically, averaging), so we require around $$880\text{ns}$$ per one ADC conversion, which theoretically gives us a maximum $$1136\text{kS/sec}$$ sampling rate. Based on the practical tests of the ADC sampling rate, the theoretical maximum of the sampling rate can be achieved with a negligible error that is the result of various additional delays. Therefore, the practical limit of the ADC sampling rate is set to $$1000\text{kS/sec}$$ which corresponds to a sampling frequency of $$1\text{MHz}$$. Any attempt to increase this rate further results in a decrease in the actual sampling rate of the module. 
+SensEdu is configured to x2 oversampling (basically, averaging), so we require around $$880\text{ns}$$ per one ADC conversion, which theoretically gives us a maximum $$1136\text{kS/sec}$$ sampling rate. Based on the practical tests of the ADC sampling rate, the theoretical maximum of the sampling rate can be achieved with a negligible error that is the result of various additional delays. Therefore, the practical limit of the ADC sampling rate is set to $$1000\text{kS/sec}$$ which corresponds to a sampling frequency of $$1\text{MHz}$$. Any attempt to increase this rate further results in a decrease in the actual sampling rate of the module.
+
 ### Initialization
 
 General ADC configuration:
@@ -640,29 +648,70 @@ The ADC clock is selected to be independent and asynchronous with the AHB clock,
 
 ### Cache Coherence
 
-When using the ADC with DMA, you need to be aware of cache coherence problems. Keep in mind that all memory is cached for faster access. The objective of DMA is to bypass the CPU and offload memory transfers to the DMA controller. The issue arises when the CPU reads the transferred data, the processor might read outdated data stored in cache instead of the actual data in memory, as it is not aware of DMA transfers.
+When using the ADC with DMA, you must account for data cache (D‑Cache) coherence. The DMA controller writes samples directly to memory, bypassing the CPU and therefore not updating the cache. If CPU then reads the buffer from cache, it may read outdated samples stored in cache instead of the actual data in memory, as it is not aware of DMA transfers.
 
-To ensure that the CPU reads correct data, you need to **invalidate the cache** before accessing any transferred data. This is accomplished using the internal function `SCB_InvalidateDCache_by_Addr(mem_addr, mem_size)` with the following parameters:
-* `mem_addr`: Memory address of the ADC buffer
-* `mem_size`: Memory size **in bytes**
+To ensure the CPU reads fresh data, **invalidate the D-Cache lines** that cover the DMA destination buffer. Use the CMSIS function `SCB_InvalidateDCache_by_Addr(mem_addr, mem_size)`, where:
+* `mem_addr`: the start address of the ADC buffer (aligned to a cache-line boundary)
+* `mem_size`: the length **in bytes**
 
-This cache invalidation is automatically performed inside the `void DMA_ADCEnable(ADC_TypeDef* adc)` function.
+Invalidation operates on whole cache lines. If the buffer is not aligned or its size is not a multiple of the cache-line size, invalidation may affect cache lines that also contain unrelated variables, which can degrade performance.
 
-The cache invalidation procedure applies to the entire cache line. Therefore, it is essential to align your ADC buffer to the cache line and ensure its size is a multiple of the cache line size. For the STM32H747, the cache line is 32 bytes long and is defined in the macro `__SCB_DCACHE_LINE_SIZE`. For a `uint16_t` array, this means the number of elements must be a multiple of 16 (each element is 2 bytes). For example. valid sizes include 16, 32, 64, etc. Alignment is achieved using the `__attribute__` directive:
+To avoid that, align the ADC buffer to the cache-line size and choose a buffer length that is a cache-line multiple. On STM32H747, the D-Cache line size is 32 bytes and is available as the macro `__SCB_DCACHE_LINE_SIZE`. For a `uint16_t` buffer, the element count should be a multiple of 16. A properly aligned manual declaration looks like this:
 
 ```c
-const uint16_t memory4adc_size = 128; // multiple of __SCB_DCACHE_LINE_SIZE/2
+const uint16_t memory4adc_size = 128; // multiple of __SCB_DCACHE_LINE_SIZE/sizeof(uint16_t)
 __attribute__((aligned(__SCB_DCACHE_LINE_SIZE))) uint16_t memory4adc[memory4adc_size];
 ```
 
-### Reading ADC Data
+The SensEdu library automates both proper buffer declaration and cache invalidation. Use the following procedure:
+* Declare the buffer with `SENSEDU_ADC_BUFFER(name, user_size)` where:
+  * `name`: the variable name to access the buffer later in code
+  * `user_size`: the number of required `uint16_t` elements
+* Start the ADC with `SensEdu_ADC_Start(ADC_TypeDef* ADC)` after initialization
 
-The STM32H7 microcontroller is equipped with three ADC modules, each capable of accessing multiple channels (refer to the ADC mapping [table] above). Reading the ADC values from a single channel is straightforward, as the data is stored consecutively in an array. 
+The library:
+- Ensures the buffer is aligned to `__SCB_DCACHE_LINE_SIZE`
+- Rounds the actual allocation as needed to satisfy cache-line requirements
+- Performs the required cache invalidation automatically inside `SensEdu_ADC_Start(ADC_TypeDef* ADC)` before starting DMA transfers
 
-However, when reading data from multiple channels within a single ADC module, users must use different approach. The data for each channel is interleaved in the array, meaning that the data for each channel is stored one after the other, rather than all data from first channel followed by all data from second channel, and so forth. This structure is illustrated clearly in the following figure giving an example of using two channels with one ADC module. 
+```c
+const uint16_t buf_size = 50;
+uint8_t pins[1] = {A0};
+SENSEDU_ADC_BUFFER(buf, buf_size);
+SensEdu_ADC_Settings adc_settings = {
+    .adc = ADC1,
+    .pins = pins,
+    .pin_num = 1,
+    .conv_mode = SENSEDU_ADC_MODE_CONT,
+    .sampling_freq = 0,
+    .dma_mode = SENSEDU_ADC_DMA_CONNECT,
+    .mem_address = (uint16_t*)buf,
+    .mem_size = buf_size
+};
 
-<img src="{{site.baseurl}}/assets/images/ADC_Data_Flow.png" alt="drawing"/>
-{: .text-center}
+void setup() {
+    SensEdu_ADC_Init(&adc_settings);
+    SensEdu_ADC_Enable(ADC1);
+    SensEdu_ADC_Start(ADC1);
+}
+
+void loop() {
+    if (SensEdu_ADC_GetTransferStatus(ADC1)) {
+        Serial.println("------");
+        for (uint16_t i = 0; i < buf_size; i++) {
+            Serial.println(buf[i]);
+        }
+        SensEdu_ADC_ClearTransferStatus(ADC1);
+        SensEdu_ADC_Start(ADC1);
+    }
+}
+```
+
+{: .NOTE}
+The `SENSEDU_ADC_BUFFER` macro accepts **any** user-defined size in `uint16_t` elements. The library allocates a slightly larger buffer internally to meet cache‑line requirements. Continue to use the requested element count (`user_size`) ignoring the internally padded capacity.
+
+{: .WARNING}
+Some legacy projects manually declare DMA buffers using the `__attribute__((aligned(...)))`. While this can work, it is easy to get alignment or sizing wrong, which can lead to unnecessary cache invalidation or other unexpected behavior. Whenever you use the ADC in DMA mode, prefer `SENSEDU_ADC_BUFFER`.
 
 [table]: /SensEdu/Library/ADC/#adc_mapping
 [this issue]: https://github.com/ShiegeChan/SensEdu/issues/8

@@ -2,9 +2,8 @@
   <img src="https://ik.imagekit.io/vladysor/SensEdu/SensEdu.png?updatedAt=1737991670936">
 </p>
 
-<b>
-<p align="center">Ultrasonic Ranging & Detection Development Shield for Arduino GIGA R1</p>
-</b>
+<p align="center"><b>Ultrasonic Ranging & Detection Development Shield for Arduino GIGA R1</b><br>
+Designed for education - easy entry into ultrasonic sensing and research</p>
 
 <p align="center">
   <a href="https://github.com/ShiegeChan/SensEdu/releases/" target="_blank">
@@ -24,7 +23,6 @@
 	<a href="https://shiegechan.github.io/SensEdu/contributing/" target="_blank">Contribution</a>
 </p>
 </b>
-
 
 ## Features
 

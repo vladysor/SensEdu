@@ -17,7 +17,7 @@ These examples illustrate more complex, yet fundamental, applications of multipl
 
 
 {: .IMPORTANT}
-To run these examples, you need to install [MATLAB].
+To run these examples, you need to install [MATLAB]. Some examples offer also an alternative in [Python].
 
 ## Recording Audio 
 
@@ -215,6 +215,14 @@ Your browser does not support the video tag.
 ## Basic Ultrasound Examples
 
 These examples demonstrate how to transmit a 32kHz ultrasonic wave at a constant sampling rate. The reflected wave is then captured and sent to a PC via Serial or WiFi communication. Using MATLAB, you can visualize and potentially process the wave. By placing an object on top of the SensEdu, you can observe wave reflections.
+
+For both the example [Basic_UltraSound]({% link library/others.md %}#basic_ultrasound) and [Basic_UltraSound_4CH]({% link library/others.md %}#basic_ultrasound_4ch) an equivalent Python implementation is also provided to visualize the acquired signals. This is particularly useful because it removes the requirement to use MATLAB, which is proprietary software that requires a paid license. With the Python version, waveform visualization and basic signal analysis can be performed using an open-source programming language, freely available and compatible with the most widely used development environments.
+
+To run examples in python, following libraries need to be installed: 
+
+* *NumPy* - for scientific computing ``` $pip install numpy```
+* *Matplotlib* - for visualization ``` $pip install matplotlib```
+* *PySerial* - for serial port communication ``` $pip install pyserial```
 
 
 ### Basic_UltraSound
@@ -720,3 +728,4 @@ Notice that with WiFi, your Serial is freed up, allowing to use it for convenien
 [STM32H747 Reference Manual]: https://www.st.com/resource/en/reference_manual/rm0399-stm32h745755-and-stm32h747757-advanced-armbased-32bit-mcus-stmicroelectronics.pdf
 
 [MATLAB]: https://www.mathworks.com/products/matlab.html
+[Python]: https://www.python.org/ 

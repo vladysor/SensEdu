@@ -3,6 +3,11 @@
 #include "SineLUT.h"
 #include "FilterTaps.h"
 #include "DACWave.h"
+#include "Peaks.h"
+
+#include <vector>
+#include <array>
+
 
 uint32_t lib_error = 0;
 uint8_t error_led = D86;
@@ -17,7 +22,7 @@ uint8_t error_led = D86;
 /*                                  Settings                                  */
 /* -------------------------------------------------------------------------- */
 
-#define BAN_DISTANCE	            20	        // Min distance [cm] - how many self reflections cancelled
+#define BAN_DISTANCE	            25	        // Min distance [cm] - how many self reflections cancelled
 #define SAMPLING_RATE               250000      // ADC sampling rate
 #define STORE_BUF_SIZE              2048        // 2400 for 1 measurement per second 
                             	            
@@ -32,43 +37,65 @@ arm_fir_instance_f32 Fir_filt; // Creating an object instance
 
 /* ----------------------------------- ADC ---------------------------------- */
 
-const uint16_t mic_data_size = STORE_BUF_SIZE * 2;
-SENSEDU_ADC_BUFFER(mic12_data, mic_data_size);
-SENSEDU_ADC_BUFFER(mic34_data, mic_data_size);
+const uint16_t adc13_data_size = STORE_BUF_SIZE * 3;
+const uint16_t adc2_data_size = STORE_BUF_SIZE * 2;
+
+SENSEDU_ADC_BUFFER(mic123_data, adc13_data_size);
+SENSEDU_ADC_BUFFER(mic48_data, adc2_data_size);
+SENSEDU_ADC_BUFFER(mic567_data, adc13_data_size);
+
 
 ADC_TypeDef* adc1 = ADC1;
 ADC_TypeDef* adc2 = ADC2;
-const uint8_t adc1_mic_num = 2;
+ADC_TypeDef* adc3 = ADC3;
+
+const uint8_t adc1_mic_num = 3;
 const uint8_t adc2_mic_num = 2;
-uint8_t mic12_pins[adc1_mic_num] = {A5, A10};
-uint8_t mic34_pins[adc2_mic_num] = {A1, A6};
+const uint8_t adc3_mic_num = 3;
+
+uint8_t mic123_pins[adc1_mic_num] = {A1, A3, A4};
+uint8_t mic48_pins[adc2_mic_num] = {A5, A10};
+uint8_t mic567_pins[adc3_mic_num] = {A6, A8, A9};
+
 
 SensEdu_ADC_Settings adc1_settings = {
     .adc = adc1,
-    .pins = mic12_pins,
+    .pins = mic123_pins,
     .pin_num = adc1_mic_num,
 
     .sr_mode = SENSEDU_ADC_SR_MODE_FIXED,
     .sampling_rate_hz = 250000,
     
     .adc_mode = SENSEDU_ADC_MODE_DMA_NORMAL,
-    .mem_address = (uint16_t*)mic12_data,
-    .mem_size = mic_data_size
+    .mem_address = (uint16_t*)mic123_data,
+    .mem_size = adc13_data_size
 };
 
 SensEdu_ADC_Settings adc2_settings = {
     .adc = adc2,
-    .pins = mic34_pins,
+    .pins = mic48_pins,
     .pin_num = adc2_mic_num,
 
     .sr_mode = SENSEDU_ADC_SR_MODE_FIXED,
     .sampling_rate_hz = 250000,
     
     .adc_mode = SENSEDU_ADC_MODE_DMA_NORMAL,
-    .mem_address = (uint16_t*)mic34_data,
-    .mem_size = mic_data_size
+    .mem_address = (uint16_t*)mic48_data,
+    .mem_size = adc2_data_size
 };
 
+SensEdu_ADC_Settings adc3_settings = {
+    .adc = adc3,
+    .pins = mic567_pins,
+    .pin_num = adc3_mic_num,
+
+    .sr_mode = SENSEDU_ADC_SR_MODE_FIXED,
+    .sampling_rate_hz = 250000,
+    
+    .adc_mode = SENSEDU_ADC_MODE_DMA_NORMAL,
+    .mem_address = (uint16_t*)mic567_data,
+    .mem_size = adc13_data_size
+};
 
 /* ----------------------------------- DAC ---------------------------------- */
 
@@ -93,6 +120,7 @@ const uint16_t air_speed = 343; // m/s
 
 // e.g. 25cm ban means 0.25*2/343 time ban, then multiply by sample rate
 const uint32_t c_banned_sample_num = ((BAN_DISTANCE*2*SAMPLING_RATE)/air_speed)/100; 
+
 
 /* -------------------------------------------------------------------------- */
 /*                              Global Structure                              */
@@ -130,10 +158,13 @@ void setup() {
     // ADC2
     SensEdu_ADC_Init(&adc2_settings);
     SensEdu_ADC_Enable(adc2);
+
+    // ADC3
+    SensEdu_ADC_Init(&adc3_settings);
+    SensEdu_ADC_Enable(adc3);
     
     pinMode(error_led, OUTPUT);
     digitalWrite(error_led, HIGH);
-
     check_lib_errors();
 }
 
@@ -163,34 +194,56 @@ void loop() {
     // Start ADCs
     SensEdu_ADC_Start(adc1);
     SensEdu_ADC_Start(adc2);
+    SensEdu_ADC_Start(adc3);
 
-    // Wait for the data from ADC1
     while (!SensEdu_ADC_IsDmaTransferComplete(adc1));
     SensEdu_ADC_ClearDmaTransferComplete(adc1);
 
-    // Wait for the data from ADC2
     while (!SensEdu_ADC_IsDmaTransferComplete(adc2));
     SensEdu_ADC_ClearDmaTransferComplete(adc2);
 
+    while (!SensEdu_ADC_IsDmaTransferComplete(adc3));
+    SensEdu_ADC_ClearDmaTransferComplete(adc3);
+
     // Calculating distance for each microphone
     static uint32_t distance[adc1_mic_num + adc2_mic_num];
+    uint32_t test_3_dist[3];
+    static std::vector<uint32_t> test_dist;
+    test_dist.reserve((adc1_mic_num + adc2_mic_num + adc3_mic_num)*MAX_PEAKS);
+
     for (uint8_t i = 0; i < adc1_mic_num; i++) {
-        get_channel_data(mic12_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc1_mic_num, i);
+        get_channel_data(mic123_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc1_mic_num, i);
         process_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag);
-        distance[i] = calculate_distance(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, SAMPLING_RATE);
+        // distance[i] = calculate_distance(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, SAMPLING_RATE);
+        calculate_distances(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, SAMPLING_RATE, test_3_dist);
+        for (uint8_t k = 0; k < MAX_PEAKS; k++) {
+            test_dist.push_back(test_3_dist[k]);
+        }
     }
     for (uint8_t i = 0; i < adc2_mic_num; i++) {
-        get_channel_data(mic34_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc2_mic_num, i);
+        get_channel_data(mic48_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc2_mic_num, i);
         process_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag);
-        distance[adc1_mic_num + i] = calculate_distance(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, SAMPLING_RATE);
+        calculate_distances(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, SAMPLING_RATE, test_3_dist);
+        for (uint8_t k = 0; k < MAX_PEAKS; k++) {
+            test_dist.push_back(test_3_dist[k]);
+        }
+    }
+    for (uint8_t i = 0; i < adc3_mic_num; i++) {
+        get_channel_data(mic567_data, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, adc3_mic_num, i);
+        process_data(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, main_obj_ptr->channel_buffer, STORE_BUF_SIZE, main_obj_ptr->ban_flag);
+        calculate_distances(main_obj_ptr->processing_buffer, STORE_BUF_SIZE, SAMPLING_RATE, test_3_dist);
+        for (uint8_t k = 0; k < MAX_PEAKS; k++) {
+            test_dist.push_back(test_3_dist[k]);
+        }
     }
 
     // Sending the distance measurements
-    for (uint8_t i = 0; i < (adc1_mic_num + adc2_mic_num); i++) {
-        Serial.write((const uint8_t *) &distance[i], 4);
+    for (uint8_t i = 0; i < (adc1_mic_num + adc2_mic_num + adc3_mic_num)*MAX_PEAKS; i++) {
+        Serial.write((const uint8_t *) &test_dist[i], 4);
     }
 
     check_lib_errors();
+    test_dist.clear();
 }
 
 void process_data(float* buf, const uint16_t buf_size, uint16_t* ch_array, const uint16_t ch_array_size, uint8_t ban_flag) {
@@ -228,3 +281,4 @@ void check_lib_errors() {
         digitalWrite(error_led, LOW);
     }
 }
+
